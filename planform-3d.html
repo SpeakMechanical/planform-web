@@ -1,0 +1,2328 @@
+<meta charset="utf-8">
+<title>Planform 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: solid-modeling workspace. Add-shape rail left, 3D viewport centre with view buttons, object tree + properties right, status bar bottom. */
+:root{
+  --chrome:#e4e9ee; --panel:#f3f6f8; --paper:#f7f9fb; --ink:#16202b; --muted:#5b6978; --rule:#cdd5dd;
+  --grid-minor:#e3e8ed; --grid-major:#c9d2db; --ax-x:#d64545; --ax-y:#2f9e5b;
+  --accent:#1c5bc9; --accent-ink:#ffffff; --accent-soft:#1c5bc91a; --hole:#7d8a97; --err:#b3261e; --ok:#17914c; --fix:#17914c; --load:#d9730d;
+  --f-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,"Courier New",monospace;
+  --f-display:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --chrome:#0e1318; --panel:#131a21; --paper:#0b1015; --ink:#d6dfe7; --muted:#8696a6; --rule:#233140;
+  --grid-minor:#16202a; --grid-major:#24323f; --ax-x:#ff6b6b; --ax-y:#4cc38a;
+  --accent:#5c9cff; --accent-ink:#04101f; --accent-soft:#5c9cff22; --hole:#9aa8b6; --err:#ff8a80; --ok:#45c486; --fix:#45c486; --load:#ffa04d;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --chrome:#0e1318; --panel:#131a21; --paper:#0b1015; --ink:#d6dfe7; --muted:#8696a6; --rule:#233140;
+  --grid-minor:#16202a; --grid-major:#24323f; --ax-x:#ff6b6b; --ax-y:#4cc38a;
+  --accent:#5c9cff; --accent-ink:#04101f; --accent-soft:#5c9cff22; --hole:#9aa8b6; --err:#ff8a80; --ok:#45c486; --fix:#45c486; --load:#ffa04d;
+  color-scheme:dark}
+
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--chrome);color:var(--ink);font-family:var(--f-ui);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+#app{height:100%;display:grid;grid-template-columns:56px minmax(0,1fr) 312px;grid-template-rows:auto minmax(0,1fr) auto;
+  grid-template-areas:"top top top" "tools stage side" "status status status"}
+.top{grid-area:top;display:flex;align-items:center;gap:16px;padding:8px 16px;border-bottom:1px solid var(--rule);background:var(--panel)}
+.brand{font-family:var(--f-display);font-weight:600;font-size:15px;letter-spacing:.08em;text-transform:uppercase;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.brand small{font-family:var(--f-mono);font-weight:400;font-size:11px;letter-spacing:0;color:var(--muted);text-transform:none}
+.brand svg{width:20px;height:20px;color:var(--accent)}
+.filebar{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border:1px solid var(--rule);background:var(--paper);border-radius:4px;font-size:13px;line-height:1.3;cursor:pointer}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.eacts{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0}
+.eacts .btn{padding:3px 9px;font-size:12.5px}
+.prop input.ex,.trio input.ex{color:var(--accent);font-style:italic}
+#vars{display:flex;flex-direction:column;gap:4px}
+.vrow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto 22px;align-items:center;gap:5px;font-size:13px}
+.vrow input{width:100%;min-width:0;border:1px solid var(--rule);background:var(--paper);border-radius:3px;padding:3px 6px;font-family:var(--f-mono);font-size:12.5px}
+.vrow output{font-family:var(--f-mono);font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums}
+.vrow button{border:1px solid transparent;background:none;border-radius:3px;color:var(--muted);font-size:15px;line-height:1;padding:2px 0}
+.vrow button:hover{border-color:var(--rule);color:var(--err)}
+.toolbar{position:absolute;left:10px;top:30px;background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:7px 11px;font-size:12.5px;line-height:1.5;max-width:min(440px,calc(100% - 20px));display:flex;flex-direction:column;gap:1px}
+.toolbar b{font-family:var(--f-display);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.toolbar .big{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.toolbar .k{font-size:11.5px;color:var(--muted)}
+.narrow-only{display:none}
+
+.tools{grid-area:tools;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0;border-right:1px solid var(--rule);background:var(--panel);overflow-y:auto}
+.tool{width:40px;height:38px;display:grid;place-items:center;border:1px solid transparent;border-radius:4px;background:none;position:relative}
+.tool svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.tool:hover{background:var(--accent-soft)}
+.tool[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.tool .k{position:absolute;right:2px;bottom:1px;font-family:var(--f-mono);font-size:8px;opacity:.65}
+.tsep{width:28px;height:1px;background:var(--rule);margin:5px 0;flex:none}
+
+.stage{grid-area:stage;position:relative;min-width:0;min-height:0;overflow:hidden;background:var(--paper)}
+#vp{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
+.views{position:absolute;right:10px;top:10px;display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 20px)}
+.views button{border:1px solid var(--rule);background:var(--panel);border-radius:4px;padding:3px 9px;font-family:var(--f-mono);font-size:11.5px;letter-spacing:.04em}
+.views button:hover{border-color:var(--muted)}
+.tag{position:absolute;left:12px;top:10px;font-family:var(--f-mono);font-size:11px;color:var(--muted);pointer-events:none;letter-spacing:.04em}
+.secbar{position:absolute;left:10px;bottom:10px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:6px 10px;font-size:12.5px;max-width:calc(100% - 20px)}
+.secbar select{font-family:var(--f-mono);font-size:12px;border:1px solid var(--rule);background:var(--paper);border-radius:3px;padding:1px 3px}
+.secbar input[type=range]{width:min(220px,40vw);accent-color:var(--accent)}
+.secbar output{font-family:var(--f-mono);font-variant-numeric:tabular-nums;min-width:5em}
+.pgrid{display:flex;flex-wrap:wrap;gap:12px}
+.pgrid label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--muted)}
+.pgrid input{width:110px;border:1px solid var(--rule);background:var(--paper);border-radius:3px;padding:4px 6px;font-family:var(--f-mono);color:var(--ink)}
+.toast{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);background:var(--panel);border:1px solid var(--rule);border-radius:4px;padding:6px 12px;font-size:13px;max-width:calc(100% - 32px);pointer-events:none}
+.toast.err{color:var(--err);border-color:var(--err)}
+.ctx{position:absolute;z-index:6;min-width:170px;background:var(--panel);border:1px solid var(--rule);border-radius:6px;box-shadow:0 6px 20px #0003;padding:4px;display:flex;flex-direction:column}
+.ctx button{display:flex;justify-content:space-between;gap:18px;text-align:left;border:none;background:none;padding:5px 10px;border-radius:4px;font-size:13px;color:var(--ink)}
+.ctx button:hover,.ctx button:focus-visible{background:var(--accent-soft)}
+.ctx kbd{font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.ctx hr{border:none;border-top:1px solid var(--rule);margin:3px 2px}
+
+.side{grid-area:side;border-left:1px solid var(--rule);background:var(--panel);overflow-y:auto;display:flex;flex-direction:column}
+.sect{padding:12px 14px;border-bottom:1px solid var(--rule)}
+.sect h2{margin:0 0 8px;font-family:var(--f-display);font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px}
+.sect h2 .acts{display:flex;gap:4px}
+.sect h2 button{font-family:var(--f-ui);letter-spacing:0;text-transform:none;font-size:12px;font-weight:500;border:1px solid var(--rule);background:var(--paper);border-radius:4px;padding:2px 8px;color:var(--ink)}
+.sect h2 button:disabled{opacity:.45;cursor:default}
+#tree{display:flex;flex-direction:column;gap:1px;max-height:30vh;overflow-y:auto}
+.row{display:grid;grid-template-columns:18px minmax(0,1fr) auto 24px;align-items:center;gap:6px;padding:3px 6px;border-radius:4px;font-size:13px;cursor:pointer;border:none;background:none;text-align:left;width:100%}
+.row:hover{background:var(--accent-soft)}
+.row.sel{background:var(--accent);color:var(--accent-ink)}
+.row.child{padding-left:24px;cursor:default;opacity:.8}
+.row .sw{width:12px;height:12px;border-radius:2px;border:1px solid var(--rule)}
+.row .sw.hole{background:repeating-linear-gradient(45deg,var(--hole) 0 2px,transparent 2px 4px)}
+.row .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .bd{font-family:var(--f-mono);font-size:10.5px;opacity:.75}
+.row .eye{width:22px;height:20px;display:grid;place-items:center;border-radius:3px}
+.row .eye svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.5}
+.row .eye.off{opacity:.4}
+.empty{margin:0;color:var(--muted);font-size:13px;line-height:1.5}
+
+.props{display:flex;flex-direction:column;gap:5px}
+.prop{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);align-items:center;gap:8px;font-size:13px}
+.prop>span{color:var(--muted)}
+.prop input,.prop select{width:100%;min-width:0;border:1px solid var(--rule);background:var(--paper);border-radius:3px;padding:3px 6px;font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.prop input[type=color]{padding:1px;height:26px}
+.prop output{font-family:var(--f-mono);font-size:12.5px;font-variant-numeric:tabular-nums}
+.trio{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}
+.seg{display:flex;border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.seg button{flex:1;border:none;background:var(--paper);padding:3px 6px;font-size:12.5px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.sub{margin:6px 0 0;font-family:var(--f-display);font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.keys{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:auto 1fr;gap:3px 10px;font-size:12.5px;color:var(--muted)}
+.keys kbd{font-family:var(--f-mono);font-size:11.5px;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:3px;padding:0 5px;justify-self:start;white-space:nowrap}
+
+.status{grid-area:status;display:flex;align-items:center;gap:14px;padding:5px 16px;border-top:1px solid var(--rule);background:var(--panel);font-family:var(--f-mono);font-size:12px;flex-wrap:wrap}
+#coords{font-variant-numeric:tabular-nums;min-width:13em}
+.toggles{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.tg{border:1px solid var(--rule);background:transparent;border-radius:3px;padding:1px 7px;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;color:var(--muted)}
+.tg[aria-pressed="true"]{color:var(--accent-ink);background:var(--accent);border-color:var(--accent)}
+.status select{font-family:var(--f-mono);font-size:11px;border:1px solid var(--rule);background:var(--paper);border-radius:3px;padding:1px 2px}
+.status .sp{margin-left:auto;color:var(--muted)}
+
+.modal{position:fixed;inset:0;background:#0008;display:grid;place-items:center;padding:16px;z-index:10}
+.sheet{background:var(--panel);border:1px solid var(--rule);border-radius:6px;width:min(720px,100%);max-height:100%;overflow:auto;display:flex;flex-direction:column;gap:10px;padding:16px}
+.mhead{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.mhead h2{margin:0;font-family:var(--f-display);font-size:16px;font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.tabs{display:flex;gap:4px}
+.tabs button{border:1px solid var(--rule);background:var(--paper);border-radius:4px;padding:4px 12px;font-family:var(--f-mono);font-size:12px}
+.tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.hint{margin:0;font-size:13px;color:var(--muted);line-height:1.5;max-width:65ch}
+.sheet textarea{width:100%;height:min(40vh,340px);resize:vertical;border:1px solid var(--rule);background:var(--paper);border-radius:4px;padding:8px;font-family:var(--f-mono);font-size:11.5px;line-height:1.4}
+.mfoot{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.mfoot label{display:flex;align-items:center;gap:6px;font-size:13px}
+.mfoot input[type=number]{width:80px;border:1px solid var(--rule);background:var(--paper);border-radius:3px;padding:3px 6px;font-family:var(--f-mono)}
+.msg{font-size:13px;color:var(--muted)}
+.msg.err{color:var(--err)}
+
+/* simulate panel */
+.srow{display:grid;grid-template-columns:10px auto minmax(0,1fr) auto auto;align-items:center;gap:7px;font-size:13px;padding:3px 0}
+.srow b{font-weight:600}
+.sdot{width:10px;height:10px;border-radius:2px}
+.sdot.fix{background:var(--fix)}
+.sdot.load{background:var(--load)}
+.scount{color:var(--muted);font-family:var(--f-mono);font-size:11.5px;letter-spacing:0;text-transform:none;font-weight:400}
+.srow button,.slink{font-size:12px;border:1px solid var(--rule);background:var(--paper);border-radius:4px;padding:2px 8px}
+.srow button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.slink{margin-top:4px}
+.sforce{display:flex;gap:6px;align-items:center;padding:0 0 5px 17px;font-size:12.5px;color:var(--muted)}
+.sforce label{display:flex;gap:3px;align-items:center;min-width:0}
+.sforce input{width:100%;min-width:0;border:1px solid var(--rule);background:var(--paper);border-radius:3px;padding:2px 4px;font-family:var(--f-mono);font-size:12px;color:var(--ink)}
+.sbtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.sout{margin-top:10px;display:flex;flex-direction:column;gap:3px}
+.sout h3{margin:6px 0 2px;font-family:var(--f-display);font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.sout .good{color:var(--ok)}
+.sout .bad{color:var(--err)}
+.schk{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;margin-top:6px}
+.schk label{display:flex;gap:5px;align-items:center}
+.smsg{margin:8px 0 0;font-size:12.5px;line-height:1.45;color:var(--muted)}
+.smsg.err{color:var(--err)}
+.smsg code{font-family:var(--f-mono);font-size:11.5px;background:var(--paper);border:1px solid var(--rule);border-radius:3px;padding:1px 4px;word-break:break-all}
+
+@media (max-width:760px){
+  #app{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr) auto;grid-template-areas:"top" "tools" "stage" "status"}
+  .top{padding:8px 12px;gap:10px}
+  .brand small{display:none}
+  .narrow-only{display:inline-flex}
+  .tools{flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:4px 8px;border-right:none;border-bottom:1px solid var(--rule)}
+  .tool{flex:none}
+  .tsep{width:1px;height:24px;margin:0 4px}
+  .side{position:fixed;right:0;top:0;bottom:0;width:min(330px,90vw);z-index:5;transform:translateX(105%);transition:transform .2s ease;box-shadow:-8px 0 24px #0003;padding-top:env(safe-area-inset-top,0px)}
+  .side.open{transform:none}
+  #coords{min-width:0}
+  .status{gap:8px;padding:5px 12px}
+}
+@media (prefers-reduced-motion:reduce){.side{transition:none}}
+</style>
+
+<div id="app">
+  <header class="top">
+    <div class="brand">
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M10 2l7 4v8l-7 4-7-4V6z"/><path d="M3 6l7 4 7-4M10 10v8"/></svg>
+      Planform 3D <small>solid modeling · mm</small>
+    </div>
+    <div class="filebar">
+      <button class="btn" id="bNew" title="Clear the scene (Undo restores)">New</button>
+      <label class="btn" for="fOpen">Open…</label>
+      <input type="file" id="fOpen" accept=".json,application/json" hidden>
+      <button class="btn" id="bExport">Export</button>
+      <button class="btn" id="bUndo" title="Undo (Ctrl+Z)">Undo</button>
+      <button class="btn" id="bRedo" title="Redo (Ctrl+Y)">Redo</button>
+      <button class="btn narrow-only" id="bPanel">Objects</button>
+    </div>
+  </header>
+
+  <nav class="tools" id="tools" aria-label="Add shapes and edit"></nav>
+
+  <main class="stage" id="stage">
+    <canvas id="vp" aria-label="3D viewport"></canvas>
+    <div class="tag" id="tag">PERSPECTIVE</div>
+    <div class="views" aria-label="Standard views">
+      <button data-view="top" title="Top view (7)">TOP</button>
+      <button data-view="front" title="Front view (1)">FRONT</button>
+      <button data-view="right" title="Right view (3)">RIGHT</button>
+      <button data-view="iso" title="Isometric view (0)">ISO</button>
+      <button data-view="fit" title="Fit all (F)">FIT</button>
+    </div>
+    <div class="secbar" id="secbar" hidden>
+      <label for="secAxis">Cut across</label>
+      <select id="secAxis"><option value="z">Z (height)</option><option value="x">X</option><option value="y">Y</option></select>
+      <input type="range" id="secPos" min="0" max="100" step="0.1" value="50" aria-label="Section position">
+      <output id="secVal">0</output>
+      <button class="btn" id="secFlip" title="Show the other side">Flip</button>
+    </div>
+    <div class="toolbar" id="toolbar" hidden aria-live="polite"></div>
+    <div class="toast" id="toast" hidden></div>
+    <div class="ctx" id="ctx" role="menu" hidden></div>
+  </main>
+
+  <aside class="side" id="side">
+    <div class="sect">
+      <h2>Objects <span class="acts"><button id="bGroup" title="Combine selected; holes cut solids (Ctrl+G)">Group</button><button id="bUngroup" title="Ctrl+Shift+G">Ungroup</button></span></h2>
+      <div id="tree"></div>
+    </div>
+    <div class="sect">
+      <h2>Sizes <span class="acts"><button id="bAddVar" title="Add a named size you can use in any field">Add</button></span></h2>
+      <div id="vars"></div>
+    </div>
+    <div class="sect">
+      <h2>Properties</h2>
+      <div id="props" class="props"></div>
+    </div>
+    <div class="sect">
+      <h2>Simulate <span class="scount">3D stress</span></h2>
+      <div id="sim"></div>
+    </div>
+    <div class="sect">
+      <h2>Controls</h2>
+      <ul class="keys">
+        <li><kbd id="kOrbK">Left-drag</kbd></li><li id="kOrbV">orbit</li>
+        <li><kbd id="kPanK">Right-drag</kbd></li><li id="kPanV">pan · wheel zooms</li>
+        <li><kbd>W</kbd> <kbd>E</kbd></li><li>move / rotate gizmo</li>
+        <li><kbd>Ctrl+G</kbd></li><li>group (holes subtract)</li>
+        <li><kbd>Ctrl+D</kbd></li><li>duplicate</li>
+        <li><kbd>D</kbd></li><li>drop to floor</li>
+        <li><kbd>H</kbd></li><li>toggle solid / hole</li>
+        <li><kbd>R</kbd></li><li>fillet / chamfer edges</li>
+        <li><kbd>M</kbd></li><li>measure</li>
+        <li><kbd>A</kbd></li><li>align face to face</li>
+        <li><kbd>P</kbd></li><li>pattern copies</li>
+        <li><kbd>S</kbd></li><li>section view</li>
+        <li><kbd>Del</kbd></li><li>delete</li>
+      </ul>
+    </div>
+  </aside>
+
+  <footer class="status">
+    <span id="coords">X —  Y —</span>
+    <span class="toggles">
+      <button class="tg" id="tgSnap" aria-pressed="true" title="Snap moves to the grid step and rotations to 15°">SNAP</button>
+      <select id="snapStep" aria-label="Snap step"><option value="0.5">0.5</option><option value="1" selected>1</option><option value="5">5</option><option value="10">10</option></select>
+      <button class="tg" id="tgFaces" aria-pressed="true" title="When dragging a part, snap its faces and centre to other parts' faces and centres">FACES</button>
+      <button class="tg" id="tgOrtho" aria-pressed="false" title="Orthographic projection (5)">ORTHO</button>
+      <button class="tg" id="tgEdges" aria-pressed="true" title="Show edges">EDGES</button>
+      <button class="tg" id="tgWire" aria-pressed="false" title="Wireframe">WIRE</button>
+    </span>
+    <select id="mouseSel" aria-label="Mouse controls" title="Mouse controls. SolidWorks: middle-drag rotates, Ctrl+middle pans, Shift+middle zooms, wheel zooms at the cursor.">
+      <option value="planform">Mouse: Planform</option>
+      <option value="solidworks">Mouse: SolidWorks</option>
+      <option value="solidworks-rev">Mouse: SolidWorks, wheel reversed</option>
+    </select>
+    <span class="sp" id="info"></span>
+  </footer>
+</div>
+
+<div class="modal" id="mExport" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="eTitle">
+    <div class="mhead"><h2 id="eTitle">Export model</h2><button class="btn" data-close>Close</button></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-fmt="stl" aria-selected="true">STL</button>
+      <button role="tab" data-fmt="obj" aria-selected="false">OBJ</button>
+      <button role="tab" data-fmt="json" aria-selected="false">JSON</button>
+      <button role="tab" data-fmt="views" aria-selected="false">2D VIEWS</button>
+    </div>
+    <p class="hint" id="eHint"></p>
+    <textarea id="eText" readonly spellcheck="false" aria-label="Exported file contents"></textarea>
+    <div class="mfoot"><button class="btn primary" id="eCopy">Copy to clipboard</button><button class="btn" id="eDown" hidden>Download file</button><span class="msg" id="eMsg"></span></div>
+  </div>
+</div>
+
+<div class="modal" id="mPattern" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="patTitle">
+    <div class="mhead"><h2 id="patTitle">Pattern copies</h2><button class="btn" data-close>Close</button></div>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-pt="lin" aria-selected="true">Linear</button>
+      <button role="tab" data-pt="circ" aria-selected="false">Circular</button>
+    </div>
+    <p class="hint" id="patHint"></p>
+    <div class="pgrid">
+      <label for="patN">Total count <input type="number" id="patN" value="4" min="2" max="200" step="1"></label>
+      <label for="patDX" data-for="lin">Step X (mm) <input id="patDX" inputmode="decimal" value="20"></label>
+      <label for="patDY" data-for="lin">Step Y (mm) <input id="patDY" inputmode="decimal" value="0"></label>
+      <label for="patDZ" data-for="lin">Step Z (mm) <input id="patDZ" inputmode="decimal" value="0"></label>
+      <label for="patA" data-for="circ">Total angle (°) <input id="patA" inputmode="decimal" value="360"></label>
+      <label for="patCX" data-for="circ">Center X (mm) <input id="patCX" inputmode="decimal" value="0"></label>
+      <label for="patCY" data-for="circ">Center Y (mm) <input id="patCY" inputmode="decimal" value="0"></label>
+    </div>
+    <div class="mfoot"><button class="btn primary" id="patGo">Make copies</button><span class="msg" id="patMsg"></span></div>
+  </div>
+</div>
+
+<div class="modal" id="mExtrude" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="xTitle">
+    <div class="mhead"><h2 id="xTitle">Make a solid from a 2D drawing</h2><button class="btn" data-close>Close</button></div>
+    <p class="hint">In Planform 2D, choose Export, then JSON, then Copy, and paste it here. Closed outlines on continuous-linetype layers become the solid. For an extrusion, shapes inside an outline become holes. For a revolve, draw half the profile to the right of the Y axis: it spins around that axis, which stands upright in 3D. Center lines, hidden lines, dimensions and text are ignored.</p>
+    <textarea id="xText" spellcheck="false" placeholder='{"app":"planform-cad", ...}' aria-label="Planform 2D JSON"></textarea>
+    <div class="mfoot">
+      <label for="xMode">Make <select id="xMode"><option value="extrude">Extrusion</option><option value="revolve">Revolve</option></select></label>
+      <label for="xH" id="xHLab">Height (mm) <input type="number" id="xH" value="10" min="0.01" step="any"></label>
+      <label for="xA" id="xALab" hidden>Angle (°) <input type="number" id="xA" value="360" min="1" max="360" step="any"></label>
+      <label class="btn" for="xFile">Choose file…</label><input type="file" id="xFile" accept=".json,application/json" hidden>
+      <button class="btn primary" id="xGo">Extrude</button>
+      <span class="msg" id="xMsg"></span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+<script>
+(() => {
+'use strict';
+const $ = s => document.querySelector(s);
+const D2R = Math.PI / 180, TAU = Math.PI * 2;
+const KEY = 'planform-3d-v1';
+const fmt = n => { const v = Math.round(n * 100) / 100; return String(Object.is(v, -0) ? 0 : v); };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const clone = o => JSON.parse(JSON.stringify(o));
+
+if (!window.THREE || !THREE.OrbitControls || !THREE.TransformControls) {
+  document.getElementById('stage').innerHTML = '<p class="empty" style="padding:24px">The 3D engine could not load. Check your internet connection and reload the page.</p>';
+  return;
+}
+
+/* =================== CSG (BSP, after csg.js by Evan Wallace) =================== */
+const EPS = 1e-5;
+class Vtx { constructor(p, n) { this.p = p; this.n = n; } clone() { return new Vtx(this.p.clone(), this.n.clone()); } flip() { this.n.negate(); }
+  lerp(o, t) { return new Vtx(this.p.clone().lerp(o.p, t), this.n.clone().lerp(o.n, t)); } }
+class Plane {
+  constructor(n, w) { this.n = n; this.w = w; }
+  static from(a, b, c) { const n = b.clone().sub(a).cross(c.clone().sub(a)).normalize(); return new Plane(n, n.dot(a)); }
+  clone() { return new Plane(this.n.clone(), this.w); }
+  flip() { this.n.negate(); this.w = -this.w; }
+  split(poly, cf, cb, f, b) {
+    let pt = 0; const types = [];
+    for (const v of poly.v) { const t = this.n.dot(v.p) - this.w, ty = t < -EPS ? 2 : t > EPS ? 1 : 0; pt |= ty; types.push(ty); }
+    if (pt === 0) (this.n.dot(poly.pl.n) > 0 ? cf : cb).push(poly);
+    else if (pt === 1) f.push(poly);
+    else if (pt === 2) b.push(poly);
+    else {
+      const F = [], B = [], m = poly.v.length;
+      for (let i = 0; i < m; i++) {
+        const j = (i + 1) % m, ti = types[i], tj = types[j], vi = poly.v[i], vj = poly.v[j];
+        if (ti !== 2) F.push(vi);
+        if (ti !== 1) B.push(ti !== 2 ? vi.clone() : vi);
+        if ((ti | tj) === 3) { const t = (this.w - this.n.dot(vi.p)) / this.n.dot(vj.p.clone().sub(vi.p)), v = vi.lerp(vj, t); F.push(v); B.push(v.clone()); }
+      }
+      if (F.length >= 3) { const q = new Poly(F); q.keep = poly.keep; f.push(q); }
+      if (B.length >= 3) { const q = new Poly(B); q.keep = poly.keep; b.push(q); }
+    }
+  }
+}
+class Poly { constructor(v) { this.v = v; this.pl = Plane.from(v[0].p, v[1].p, v[2].p); } clone() { return new Poly(this.v.map(x => x.clone())); }
+  flip() { this.v.reverse().forEach(x => x.flip()); this.pl.flip(); } }
+class Node {
+  constructor(polys) { this.pl = null; this.f = null; this.b = null; this.polys = []; if (polys) this.build(polys); }
+  invert() { for (const p of this.polys) p.flip(); if (this.pl) this.pl.flip(); if (this.f) this.f.invert(); if (this.b) this.b.invert(); const t = this.f; this.f = this.b; this.b = t; }
+  clip(polys) {
+    if (!this.pl) return polys.slice();
+    let f = [], b = []; for (const p of polys) this.pl.split(p, f, b, f, b);
+    if (this.f) f = this.f.clip(f); b = this.b ? this.b.clip(b) : [];
+    return f.concat(b);
+  }
+  // polygons flagged `keep` lie outside the other solid's bounding box, so clipping could only fragment them
+  clipTo(n) { const keep = this.polys.filter(p => p.keep); this.polys = keep.concat(n.clip(this.polys.filter(p => !p.keep))); if (this.f) this.f.clipTo(n); if (this.b) this.b.clipTo(n); }
+  all() { let o = this.polys.slice(); if (this.f) o = o.concat(this.f.all()); if (this.b) o = o.concat(this.b.all()); return o; }
+  build(polys) {
+    if (!polys.length) return;
+    if (!this.pl) this.pl = pickPlane(polys);
+    const f = [], b = []; for (const p of polys) this.pl.split(p, this.polys, this.polys, f, b);
+    if (f.length) { if (!this.f) this.f = new Node(); this.f.build(f); }
+    if (b.length) { if (!this.b) this.b = new Node(); this.b.build(b); }
+  }
+}
+// choose a splitting plane that cuts few polygons and balances the tree (the main CSG speedup)
+function pickPlane(polys) {
+  const n = polys.length; if (n < 12) return polys[0].pl.clone();
+  const K = 12, step = Math.max(1, Math.floor(n / K)), sample = Math.max(1, Math.floor(n / 250));
+  let best = polys[0].pl, bestScore = Infinity;
+  for (let i = 0, tried = 0; i < n && tried < K; i += step, tried++) {
+    const pl = polys[i].pl; let span = 0, f = 0, b = 0;
+    for (let j = 0; j < n; j += sample) {
+      let pos = false, neg = false;
+      for (const v of polys[j].v) { const t = pl.n.dot(v.p) - pl.w; if (t > EPS) pos = true; else if (t < -EPS) neg = true; }
+      if (pos && neg) span++; else if (pos) f++; else if (neg) b++;
+    }
+    const score = span * 6 + Math.abs(f - b);
+    if (score < bestScore) { bestScore = score; best = pl; }
+  }
+  return best.clone();
+}
+function polysBox(L) {
+  const b = { x0: Infinity, y0: Infinity, z0: Infinity, x1: -Infinity, y1: -Infinity, z1: -Infinity };
+  for (const p of L) for (const { p: v } of p.v) { if (v.x < b.x0) b.x0 = v.x; if (v.y < b.y0) b.y0 = v.y; if (v.z < b.z0) b.z0 = v.z; if (v.x > b.x1) b.x1 = v.x; if (v.y > b.y1) b.y1 = v.y; if (v.z > b.z1) b.z1 = v.z; }
+  return b;
+}
+function polyOutside(p, b) {
+  let x0 = Infinity, y0 = Infinity, z0 = Infinity, x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+  for (const { p: v } of p.v) { x0 = Math.min(x0, v.x); y0 = Math.min(y0, v.y); z0 = Math.min(z0, v.z); x1 = Math.max(x1, v.x); y1 = Math.max(y1, v.y); z1 = Math.max(z1, v.z); }
+  const e = 1e-4; return x1 < b.x0 - e || x0 > b.x1 + e || y1 < b.y0 - e || y0 > b.y1 + e || z1 < b.z0 - e || z0 > b.z1 + e;
+}
+const tagged = (L, box) => L.map(p => { const q = p.clone(); q.keep = polyOutside(q, box); return q; });
+function csgUnion(A, B) {
+  const ba = polysBox(A), bb = polysBox(B);
+  const a = new Node(tagged(A, bb)), b = new Node(tagged(B, ba));
+  a.clipTo(b); b.clipTo(a); b.invert(); b.clipTo(a); b.invert(); a.build(b.all()); return a.all().map(p => (p.keep = false, p));
+}
+function csgSubtract(A, B) {
+  const ba = polysBox(A), bb = polysBox(B);
+  const a = new Node(tagged(A, bb)), b = new Node(B.filter(p => !polyOutside(p, ba)).map(p => p.clone()));
+  a.invert(); a.clipTo(b); b.clipTo(a); b.invert(); b.clipTo(a); b.invert(); a.build(b.all()); a.invert(); return a.all().map(p => (p.keep = false, p));
+}
+function toPolys(g, m) {
+  const gi = g.index ? g.toNonIndexed() : g;
+  if (!gi.attributes.normal) gi.computeVertexNormals();
+  const P = gi.attributes.position.array, N = gi.attributes.normal.array, nm = new THREE.Matrix3().getNormalMatrix(m), out = [];
+  for (let i = 0; i < P.length; i += 9) {
+    const v = [0, 1, 2].map(k => new Vtx(new THREE.Vector3(P[i + 3 * k], P[i + 3 * k + 1], P[i + 3 * k + 2]).applyMatrix4(m),
+      new THREE.Vector3(N[i + 3 * k], N[i + 3 * k + 1], N[i + 3 * k + 2]).applyMatrix3(nm).normalize()));
+    if (v[1].p.clone().sub(v[0].p).cross(v[2].p.clone().sub(v[0].p)).lengthSq() < 1e-14) continue;
+    out.push(new Poly(v));
+  }
+  return out;
+}
+function fromPolys(polys) {
+  const pos = [], nor = [];
+  for (const p of polys) for (let i = 1; i < p.v.length - 1; i++) for (const v of [p.v[0], p.v[i], p.v[i + 1]]) { pos.push(v.p.x, v.p.y, v.p.z); nor.push(v.n.x, v.n.y, v.n.z); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  return g;
+}
+// feature edges that tolerate T-junctions left by CSG splitting
+function creaseEdges(g, thr = 25) {
+  const P = g.attributes.position.array, cosT = Math.cos(thr * D2R);
+  g.computeBoundingBox(); const diag = g.boundingBox.getSize(new THREE.Vector3()).length() || 1, h = diag / 30, eps = diag * 1e-4;
+  const tn = [], E = [];
+  for (let i = 0, t = 0; i < P.length; i += 9, t++) {
+    const ax = P[i], ay = P[i + 1], az = P[i + 2], bx = P[i + 3], by = P[i + 4], bz = P[i + 5], cx = P[i + 6], cy = P[i + 7], cz = P[i + 8];
+    const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+    let nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx; const L = Math.hypot(nx, ny, nz);
+    if (L < 1e-12) { tn.push(null); continue; }
+    tn.push([nx / L, ny / L, nz / L]);
+    E.push([t, ax, ay, az, bx, by, bz], [t, bx, by, bz, cx, cy, cz], [t, cx, cy, cz, ax, ay, az]);
+  }
+  // edges shared end-to-end are settled directly; only the rest (T-junctions) need the spatial search
+  const vk = (x, y, z) => `${Math.round(x * 1e4)},${Math.round(y * 1e4)},${Math.round(z * 1e4)}`, pairs = new Map();
+  E.forEach((e, idx) => { const a = vk(e[1], e[2], e[3]), b = vk(e[4], e[5], e[6]), k = a < b ? a + '|' + b : b + '|' + a; let l = pairs.get(k); if (!l) pairs.set(k, l = []); l.push(idx); });
+  const out = [], loose = [];
+  for (const l of pairs.values()) {
+    if (l.length === 1) { loose.push(l[0]); continue; }
+    for (const i of l) {
+      const e = E[i], ne = tn[e[0]];
+      const smooth = l.some(j => j !== i && E[j][0] !== e[0] && (ne[0] * tn[E[j][0]][0] + ne[1] * tn[E[j][0]][1] + ne[2] * tn[E[j][0]][2]) > cosT);
+      if (!smooth) { out.push(e[1], e[2], e[3], e[4], e[5], e[6]); }
+    }
+  }
+  const grid = new Map(), ck = (x, y, z) => `${Math.floor(x / h)},${Math.floor(y / h)},${Math.floor(z / h)}`;
+  loose.forEach(idx => { const e = E[idx];
+    const L = Math.hypot(e[4] - e[1], e[5] - e[2], e[6] - e[3]), n = Math.max(1, Math.ceil(L / (h / 2)));
+    let last = '';
+    for (let s = 0; s <= n; s++) { const t = s / n, k = ck(e[1] + (e[4] - e[1]) * t, e[2] + (e[5] - e[2]) * t, e[3] + (e[6] - e[3]) * t); if (k === last) continue; last = k; let a = grid.get(k); if (!a) grid.set(k, a = []); a.push(idx); }
+  });
+  const onSeg = (mx, my, mz, f) => {
+    const dx = f[4] - f[1], dy = f[5] - f[2], dz = f[6] - f[3], L2 = dx * dx + dy * dy + dz * dz; if (!L2) return false;
+    const t = ((mx - f[1]) * dx + (my - f[2]) * dy + (mz - f[3]) * dz) / L2; if (t < -1e-6 || t > 1 + 1e-6) return false;
+    return Math.hypot(f[1] + dx * t - mx, f[2] + dy * t - my, f[3] + dz * t - mz) < eps;
+  };
+  for (const idx of loose) {
+    const e = E[idx], mx = (e[1] + e[4]) / 2, my = (e[2] + e[5]) / 2, mz = (e[3] + e[6]) / 2;
+    const ix = Math.floor(mx / h), iy = Math.floor(my / h), iz = Math.floor(mz / h);
+    let smooth = false; const ne = tn[e[0]];
+    search: for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (let c = -1; c <= 1; c++) {
+      for (const fi of grid.get(`${ix + a},${iy + b},${iz + c}`) || []) {
+        const f = E[fi]; if (f[0] === e[0] || !onSeg(mx, my, mz, f)) continue;
+        const nf = tn[f[0]]; if (ne[0] * nf[0] + ne[1] * nf[1] + ne[2] * nf[2] > cosT) { smooth = true; break search; }
+      }
+    }
+    if (!smooth) out.push(e[1], e[2], e[3], e[4], e[5], e[6]);
+  }
+  const eg = new THREE.BufferGeometry(); eg.setAttribute('position', new THREE.Float32BufferAttribute(out, 3)); return eg;
+}
+
+/* =================== model =================== */
+let objs = [], nextId = 1;
+const sel = new Set();
+const undoStack = [], redoStack = [];
+let edgeMode = null; // fillet/chamfer picking: { id, picked: Set of edge keys, hover, t, r, rx }
+let vars = [];       // named sizes, [{ name, expr }]; each may use the ones above it
+let tool = null;     // 'measure' or 'align' while that viewport tool is active
+const KINDS = {
+  box: { label: 'Box', params: { w: 20, d: 20, h: 20 } },
+  cyl: { label: 'Cylinder', params: { dia: 20, h: 20, seg: 48 } },
+  sphere: { label: 'Sphere', params: { dia: 20, seg: 40 } },
+  cone: { label: 'Cone', params: { base: 20, top: 0, h: 20, seg: 48 } },
+  torus: { label: 'Torus', params: { major: 30, tube: 6, seg: 64 } },
+  prism: { label: 'Prism', params: { sides: 6, dia: 20, h: 20 } },
+  extrude: { label: 'Extrusion', params: { h: 10, loops: [] } },
+  revolve: { label: 'Revolve', params: { angle: 360, seg: 64, loops: [] } },
+  group: { label: 'Group', params: {} },
+};
+const PALETTE = ['#8aa4bf', '#d0894a', '#6fae8f', '#b98cc4', '#c9b458', '#d06a6a'];
+const snapshot = () => JSON.stringify({ objs, nextId, vars });
+function pushUndo() { undoStack.push(snapshot()); if (undoStack.length > 100) undoStack.shift(); redoStack.length = 0; }
+function restore(s) { const o = JSON.parse(s); objs = o.objs; nextId = o.nextId; vars = o.vars || []; for (const id of [...sel]) if (!byId(id)) sel.delete(id); }
+function undo() { if (!undoStack.length) return toast('Nothing to undo.'); redoStack.push(snapshot()); restore(undoStack.pop()); refresh(); }
+function redo() { if (!redoStack.length) return toast('Nothing to redo.'); undoStack.push(snapshot()); restore(redoStack.pop()); refresh(); }
+const byId = id => objs.find(o => o.id === id);
+function countKind(k) { return objs.filter(o => o.kind === k).length; }
+function makeObj(kind, extra = {}) {
+  return Object.assign({ id: nextId++, name: `${KINDS[kind].label} ${countKind(kind) + 1}`, kind, params: clone(KINDS[kind].params),
+    pos: [0, 0, 0], rot: [0, 0, 0], color: PALETTE[(nextId - 2) % PALETTE.length], hole: false, hidden: false }, extra);
+}
+
+/* =================== geometry =================== */
+const gCache = new Map();
+const geomKey = o => JSON.stringify([o.kind, o.params, o.kind === 'group' ? o.children.map(c => [geomKey(c), c.pos, c.rot, c.hole]) : 0]);
+function localMatrix(o) {
+  return new THREE.Matrix4().compose(new THREE.Vector3(...o.pos), new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rot[0] * D2R, o.rot[1] * D2R, o.rot[2] * D2R)), new THREE.Vector3(1, 1, 1));
+}
+function buildGeom(o) {
+  if (o.kind !== 'group' && hasFx(o)) { const fg = fxGeom(o); if (fg) return fg; }
+  const p = o.params; let g;
+  const upright = (rt, rb, h, seg) => { const c = new THREE.CylinderGeometry(rt, rb, h, Math.max(3, seg | 0)); c.rotateX(Math.PI / 2); c.translate(0, 0, h / 2); return c; };
+  switch (o.kind) {
+    case 'box': g = new THREE.BoxGeometry(p.w, p.d, p.h); g.translate(0, 0, p.h / 2); break;
+    case 'cyl': g = upright(p.dia / 2, p.dia / 2, p.h, p.seg); break;
+    case 'cone': g = upright(Math.max(0, p.top / 2), p.base / 2, p.h, p.seg); break;
+    case 'prism': g = upright(p.dia / 2, p.dia / 2, p.h, p.sides); break;
+    case 'sphere': g = new THREE.SphereGeometry(p.dia / 2, Math.max(8, p.seg | 0), Math.max(6, (p.seg / 2) | 0)); g.translate(0, 0, p.dia / 2); break;
+    case 'torus': g = new THREE.TorusGeometry(p.major / 2, p.tube / 2, 24, Math.max(8, p.seg | 0)); g.translate(0, 0, p.tube / 2); break;
+    case 'extrude': {
+      const shapes = p.loops.map(L => { const s = new THREE.Shape(L.outer.map(([x, y]) => new THREE.Vector2(x, y))); s.holes = (L.holes || []).map(hh => new THREE.Path(hh.map(([x, y]) => new THREE.Vector2(x, y)))); return s; });
+      g = new THREE.ExtrudeGeometry(shapes, { depth: p.h, bevelEnabled: false, curveSegments: 1 }); break;
+    }
+    case 'revolve': g = revolveGeom(p); break;
+    case 'group': g = groupGeom(o); break;
+  }
+  if (!g.attributes.normal) g.computeVertexNormals();
+  return g;
+}
+function signedVol(P) {
+  let v = 0;
+  for (let i = 0; i < P.length; i += 9) v += P[i] * (P[i + 4] * P[i + 8] - P[i + 5] * P[i + 7]) - P[i + 1] * (P[i + 3] * P[i + 8] - P[i + 5] * P[i + 6]) + P[i + 2] * (P[i + 3] * P[i + 7] - P[i + 4] * P[i + 6]);
+  return v / 6;
+}
+function flipTris(P) { for (let i = 0; i < P.length; i += 9) for (let k = 0; k < 3; k++) { const t = P[i + 3 + k]; P[i + 3 + k] = P[i + 6 + k]; P[i + 6 + k] = t; } }
+// spin each outer profile around the drawing's Y axis; the axis becomes Z in 3D
+function revolveGeom(p) {
+  const ang = Math.min(360, Math.max(1, p.angle)) * D2R, full = ang >= TAU - 1e-6, segs = Math.max(3, Math.round(Math.max(8, p.seg | 0) * ang / TAU));
+  const out = [];
+  for (const L of p.loops) {
+    let pts = L.outer.map(([x, y]) => [Math.max(0, x), y]);
+    let a = 0; for (let i = 0; i < pts.length; i++) { const q = pts[i], r = pts[(i + 1) % pts.length]; a += q[0] * r[1] - r[0] * q[1]; }
+    if (a < 0) pts = pts.slice().reverse();
+    const lathe = new THREE.LatheGeometry([...pts, pts[0]].map(([x, y]) => new THREE.Vector2(x, y)), segs, 0, ang);
+    lathe.rotateX(Math.PI / 2);
+    const body = Array.from(lathe.toNonIndexed().attributes.position.array), caps = [];
+    if (!full) {
+      const tris = THREE.ShapeUtils.triangulateShape(pts.map(([x, y]) => new THREE.Vector2(x, y)), []);
+      for (const [phi, sg] of [[0, -1], [ang, 1]]) {
+        const m = ([x, y]) => [x * Math.sin(phi), -x * Math.cos(phi), y], ox = Math.cos(phi) * sg, oy = Math.sin(phi) * sg;
+        for (const [i, j, k] of tris) {
+          let A = m(pts[i]), B = m(pts[j]), C = m(pts[k]);
+          const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2], vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
+          if ((uy * vz - uz * vy) * ox + (uz * vx - ux * vz) * oy < 0) [B, C] = [C, B];
+          caps.push(...A, ...B, ...C);
+        }
+      }
+    }
+    if (signedVol(body) + signedVol(caps) < 0) flipTris(body);
+    out.push(...body, ...caps);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(out, 3)); g.computeVertexNormals();
+  return g;
+}
+/* =================== fillets and chamfers =================== */
+// Rounded edges are worked out on the part's 2D profile, so every key names a profile feature:
+//   V|ring|i   upright edge at profile corner i       (box, prism, extrusion)
+//   T|ring|j   top edge chain starting at segment j   (one shared size per part)
+//   B|ring|j   bottom edge chain starting at segment j (one shared size per part)
+//   P|loop|i   circular edge swept by corner i of a revolved profile (cylinder, cone, revolve)
+// ring is "loop.n": n = 0 for the outline, 1.. for its holes.
+const SHARP = 20 * D2R;   // profile corners turning more than this are edges; gentler ones are facets of a curve
+const ARC_STEP = 15 * D2R; // facet angle of generated rounds, under the 25° edge-line threshold
+const area2 = P => { let a = 0; for (let i = 0; i < P.length; i++) { const p = P[i], q = P[(i + 1) % P.length]; a += p[0] * q[1] - q[0] * p[1]; } return a; };
+function turnAt(P, i) {
+  const n = P.length, a = P[(i + n - 1) % n], p = P[i], b = P[(i + 1) % n];
+  const ux = p[0] - a[0], uy = p[1] - a[1], vx = b[0] - p[0], vy = b[1] - p[1];
+  return Math.abs(Math.atan2(ux * vy - uy * vx, ux * vx + uy * vy));
+}
+function prismProfile(o) {
+  const p = o.params;
+  if (o.kind === 'box') return { h: p.h, loops: [{ outer: [[-p.w / 2, -p.d / 2], [p.w / 2, -p.d / 2], [p.w / 2, p.d / 2], [-p.w / 2, p.d / 2]], holes: [] }] };
+  if (o.kind === 'prism') { const n = Math.max(3, p.sides | 0), r = p.dia / 2; return { h: p.h, loops: [{ outer: Array.from({ length: n }, (_, k) => [r * Math.sin(TAU * k / n), -r * Math.cos(TAU * k / n)]), holes: [] }] }; }
+  if (o.kind === 'extrude') return { h: p.h, loops: p.loops };
+  return null;
+}
+function revProfile(o) {
+  const p = o.params;
+  if (o.kind === 'cyl') return { angle: 360, seg: p.seg, loops: [{ outer: [[0, 0], [p.dia / 2, 0], [p.dia / 2, p.h], [0, p.h]] }] };
+  if (o.kind === 'cone') return { angle: 360, seg: p.seg, loops: [{ outer: p.top > 0 ? [[0, 0], [p.base / 2, 0], [p.top / 2, p.h], [0, p.h]] : [[0, 0], [p.base / 2, 0], [0, p.h]] }] };
+  if (o.kind === 'revolve') return p;
+  return null;
+}
+// outlines counter-clockwise and holes clockwise, so the material is always on the left
+function ringsOf(loops) {
+  const out = [];
+  loops.forEach((L, li) => [L.outer, ...(L.holes || [])].forEach((P, ri) => {
+    let pts = P.filter((p, i) => { const q = P[(i + 1) % P.length]; return Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-7; });
+    if (pts.length < 3) return;
+    if ((area2(pts) > 0) !== (ri === 0)) pts = pts.slice().reverse();
+    out.push({ id: `${li}.${ri}`, li, ri, pts });
+  }));
+  return out;
+}
+// segment j -> first segment of its chain (chains break at sharp corners)
+function chainStarts(P) {
+  const n = P.length, sharp = [];
+  for (let i = 0; i < n; i++) if (turnAt(P, i) > SHARP) sharp.push(i);
+  if (!sharp.length) return new Array(n).fill(0);
+  const out = new Array(n); let s = sharp[sharp.length - 1];
+  for (let j = 0; j < n; j++) { if (sharp.includes(j)) s = j; out[j] = s; }
+  return out;
+}
+// Round or chamfer the corners for which spec(i) gives {t, r}. from[k] says what new segment k
+// (out[k] -> out[k+1]) lies on: an original segment index, or -1-i for the round at corner i.
+function roundRing(P, spec) {
+  const n = P.length, out = [], from = []; let clipped = false;
+  for (let i = 0; i < n; i++) {
+    const s = spec(i), p = P[i];
+    const a = P[(i + n - 1) % n], b = P[(i + 1) % n];
+    let ux = a[0] - p[0], uy = a[1] - p[1], vx = b[0] - p[0], vy = b[1] - p[1];
+    const la = Math.hypot(ux, uy), lb = Math.hypot(vx, vy);
+    const th = la && lb ? Math.acos(Math.max(-1, Math.min(1, (ux * vx + uy * vy) / (la * lb)))) : Math.PI;
+    if (!s || !(s.r > 0) || th < 1e-3 || th > Math.PI - 1e-3) { out.push(p); from.push(i); continue; }
+    ux /= la; uy /= la; vx /= lb; vy /= lb;
+    let d = s.t === 'chamfer' ? s.r : s.r / Math.tan(th / 2);
+    const dmax = 0.49 * Math.min(la, lb); if (d > dmax) { d = dmax; clipped = true; }
+    const A = [p[0] + ux * d, p[1] + uy * d], B = [p[0] + vx * d, p[1] + vy * d];
+    out.push(A); from.push(-1 - i);
+    if (s.t !== 'chamfer') {
+      const r = d * Math.tan(th / 2), bl = Math.hypot(ux + vx, uy + vy), k = r / Math.sin(th / 2) / bl;
+      const c = [p[0] + (ux + vx) * k, p[1] + (uy + vy) * k];
+      const a0 = Math.atan2(A[1] - c[1], A[0] - c[0]); let sw = Math.atan2(B[1] - c[1], B[0] - c[0]) - a0;
+      if (sw > Math.PI) sw -= TAU; else if (sw < -Math.PI) sw += TAU;
+      const m = Math.max(2, Math.ceil(Math.abs(sw) / ARC_STEP));
+      for (let q = 1; q < m; q++) { out.push([c[0] + r * Math.cos(a0 + sw * q / m), c[1] + r * Math.sin(a0 + sw * q / m)]); from.push(-1 - i); }
+    }
+    out.push(B); from.push(i);
+  }
+  return { pts: out, from, clipped };
+}
+// move each segment k into the material by d[k], meeting neighbours at their offset lines
+function offsetRing(P, d) {
+  const n = P.length, out = [];
+  for (let i = 0; i < n; i++) {
+    const j = (i + n - 1) % n, p = P[i], q0 = P[j], q1 = P[(i + 1) % n];
+    let t1x = p[0] - q0[0], t1y = p[1] - q0[1], t2x = q1[0] - p[0], t2y = q1[1] - p[1];
+    const l1 = Math.hypot(t1x, t1y), l2 = Math.hypot(t2x, t2y); t1x /= l1; t1y /= l1; t2x /= l2; t2y /= l2;
+    const ax = p[0] - t1y * d[j], ay = p[1] + t1x * d[j], bx = p[0] - t2y * d[i], by = p[1] + t2x * d[i];
+    const cr = t1x * t2y - t1y * t2x;
+    if (Math.abs(cr) < 1e-6) { out.push([(ax + bx) / 2, (ay + by) / 2]); continue; }
+    const s = ((bx - ax) * t2y - (by - ay) * t2x) / cr;
+    out.push([ax + t1x * s, ay + t1y * s]);
+  }
+  return out;
+}
+// which segments of a rounded ring carry the top/bottom treatment; it follows tangent edges, like CAD fillet chains
+function sideFlags(ring, R, side, tag) {
+  const n = R.pts.length; if (!side) return new Array(n).fill(false);
+  const st = chainStarts(ring.pts), m = ring.pts.length, on = j => side.segs.includes(`${tag}|${ring.id}|${st[j]}`);
+  const f = R.from.map(s => s >= 0 ? on(s) : on((-1 - s + m - 1) % m) || on(-1 - s));
+  for (let changed = true; changed;) {
+    changed = false;
+    for (let k = 0; k < n; k++) { const j = (k + n - 1) % n; if (f[j] !== f[k] && turnAt(R.pts, k) <= SHARP) { f[j] = f[k] = true; changed = true; } }
+  }
+  return f;
+}
+function prismFx(pr, fx) {
+  const top = fx.top && fx.top.segs.length ? fx.top : null, bot = fx.bot && fx.bot.segs.length ? fx.bot : null;
+  let rt = top ? top.r : 0, rb = bot ? bot.r : 0, clipped = false, overlap = false;
+  if (rt + rb > 0.98 * pr.h) { const k = 0.98 * pr.h / (rt + rb); rt *= k; rb *= k; clipped = true; }
+  const prof = (t, s) => t === 'chamfer' ? [s, s] : [1 - Math.cos(s * Math.PI / 2), Math.sin(s * Math.PI / 2)]; // [inset, rise] per unit size
+  const layers = [];
+  if (bot) { const n = bot.t === 'chamfer' ? 1 : 6; for (let k = n; k >= 0; k--) { const [a, b] = prof(bot.t, k / n); layers.push({ z: rb - rb * b, d: rb * a, side: 'B' }); } }
+  else layers.push({ z: 0, d: 0, side: 'B' });
+  if (top) { const n = top.t === 'chamfer' ? 1 : 6; for (let k = 0; k <= n; k++) { const [a, b] = prof(top.t, k / n); layers.push({ z: pr.h - rt + rt * b, d: rt * a, side: 'T' }); } }
+  else layers.push({ z: pr.h, d: 0, side: 'T' });
+
+  // rounds shrink to a point where a top fillet meets an upright one, so drop the zero-area triangles
+  const pos = [], tri = (a, b, c) => {
+    const ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    if (Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) > 1e-9) pos.push(...a, ...b, ...c);
+  };
+  const rings = ringsOf(pr.loops).map(ring => {
+    const R = roundRing(ring.pts, i => fx.v && fx.v[`V|${ring.id}|${i}`]); clipped = clipped || R.clipped;
+    const fT = sideFlags(ring, R, top, 'T'), fB = sideFlags(ring, R, bot, 'B');
+    const L = layers.map(l => offsetRing(R.pts, (l.side === 'T' ? fT : fB).map(on => on ? l.d : 0)).map(([x, y]) => [x, y, l.z]));
+    return { ring, L };
+  });
+  for (const { L } of rings) for (let l = 0; l + 1 < L.length; l++) {
+    const A = L[l], B = L[l + 1], n = A.length;
+    for (let k = 0; k < n; k++) { const k1 = (k + 1) % n; tri(A[k], A[k1], B[k1]); tri(A[k], B[k1], B[k]); }
+  }
+  for (const [li, up] of [[0, false], [layers.length - 1, true]]) {
+    const dedup = R => R.filter((p, i) => { const q = R[(i + 1) % R.length]; return Math.hypot(p[0] - q[0], p[1] - q[1]) > 1e-6; });
+    const byLoop = new Map(); for (const r of rings) { if (!byLoop.has(r.ring.li)) byLoop.set(r.ring.li, []); byLoop.get(r.ring.li).push(dedup(r.L[li])); }
+    for (const rs of byLoop.values()) {
+      const [outer, ...holes] = rs, all = rs.flat(), v2 = r => r.map(([x, y]) => new THREE.Vector2(x, y));
+      let tA = 0;
+      for (let [a, b, c] of THREE.ShapeUtils.triangulateShape(v2(outer), holes.map(v2))) {
+        const A = all[a], B = all[b], C = all[c], cr = (B[0] - A[0]) * (C[1] - A[1]) - (B[1] - A[1]) * (C[0] - A[0]);
+        tA += Math.abs(cr) / 2;
+        if ((cr > 0) === up) tri(A, B, C); else tri(A, C, B);
+      }
+      // rounds that overlap each other or run past the material leave crossing outlines; their
+      // triangulated area no longer matches the outline area
+      const pA = Math.abs(area2(outer)) / 2 - holes.reduce((s, h) => s + Math.abs(area2(h)) / 2, 0);
+      if (Math.abs(tA - pA) > 0.005 * Math.max(tA, 1e-9)) overlap = true;
+    }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  smoothNormals(g); g.userData.clipped = clipped; g.userData.overlap = overlap;
+  return g;
+}
+function fxGeom(o) {
+  const fx = o.params.fx, pr = prismProfile(o);
+  if (pr) return prismFx(pr, fx);
+  const rv = revProfile(o); if (!rv) return null;
+  let clipped = false;
+  const loops = rv.loops.map((L, li) => { const R = roundRing(L.outer, i => fx.p && fx.p[`P|${li}|${i}`]); clipped = clipped || R.clipped; return { outer: R.pts }; });
+  const g = revolveGeom({ angle: rv.angle, seg: rv.seg, loops }); smoothNormals(g); g.userData.clipped = clipped;
+  return g;
+}
+const hasFx = o => !!(o.params.fx && treatedKeys(o).size);
+function treatedKeys(o) {
+  const f = o.params.fx || {};
+  return new Set([...Object.keys(f.v || {}), ...Object.keys(f.p || {}), ...(f.top ? f.top.segs : []), ...(f.bot ? f.bot.segs : [])]);
+}
+// the pickable sharp edges of a part, as local-space polylines
+const elCache = new Map();
+function edgeList(o) {
+  const k = JSON.stringify([o.kind, o.params.w, o.params.d, o.params.h, o.params.sides, o.params.dia, o.params.base, o.params.top, o.params.angle, o.params.seg, o.params.loops]);
+  let L = elCache.get(k); if (L) return L;
+  L = [];
+  const pr = prismProfile(o);
+  if (pr) for (const ring of ringsOf(pr.loops)) {
+    const P = ring.pts, n = P.length, st = chainStarts(P);
+    for (const s of new Set(st)) {
+      let j = s, idx = [s]; do { j = (j + 1) % n; idx.push(j); } while (j !== s && st[j] === s);
+      const closed = idx[idx.length - 1] === s && turnAt(P, s) <= SHARP; if (closed) idx.pop();
+      for (const [tag, z] of [['T', pr.h], ['B', 0]]) L.push({ key: `${tag}|${ring.id}|${s}`, pts: idx.map(i => [P[i][0], P[i][1], z]), closed });
+    }
+    for (let i = 0; i < n; i++) if (turnAt(P, i) > SHARP) L.push({ key: `V|${ring.id}|${i}`, pts: [[P[i][0], P[i][1], 0], [P[i][0], P[i][1], pr.h]], closed: false });
+  }
+  const rv = !pr && revProfile(o);
+  if (rv) {
+    const ang = Math.min(360, Math.max(1, rv.angle)) * D2R, full = ang >= TAU - 1e-6, m = Math.max(8, Math.round(Math.max(8, rv.seg | 0) * ang / TAU));
+    rv.loops.forEach((Lp, li) => Lp.outer.forEach(([x, y], i) => {
+      if (x < 1e-6 || turnAt(Lp.outer, i) <= SHARP) return;
+      L.push({ key: `P|${li}|${i}`, pts: Array.from({ length: full ? m : m + 1 }, (_, q) => { const f = ang * q / m; return [x * Math.sin(f), -x * Math.cos(f), y]; }), closed: full });
+    }));
+  }
+  if (elCache.size > 200) elCache.clear();
+  elCache.set(k, L); return L;
+}
+// vertex normals averaged over faces meeting at less than `deg`, so rounds shade smoothly. Weighting by
+// area keeps a big flat face's own normal where it meets a round tangentially, so it shades evenly.
+function smoothNormals(g, deg = 30) {
+  const P = g.attributes.position.array, nt = P.length / 9, fn = new Float32Array(nt * 3), fa = new Float32Array(nt), cosT = Math.cos(deg * D2R);
+  for (let t = 0; t < nt; t++) {
+    const i = t * 9, ux = P[i + 3] - P[i], uy = P[i + 4] - P[i + 1], uz = P[i + 5] - P[i + 2], vx = P[i + 6] - P[i], vy = P[i + 7] - P[i + 1], vz = P[i + 8] - P[i + 2];
+    const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx, l = Math.hypot(x, y, z) || 1;
+    fn[t * 3] = x / l; fn[t * 3 + 1] = y / l; fn[t * 3 + 2] = z / l; fa[t] = l;
+  }
+  const at = new Map();
+  for (let v = 0; v < nt * 3; v++) { const k = `${Math.round(P[v * 3] * 1e4)},${Math.round(P[v * 3 + 1] * 1e4)},${Math.round(P[v * 3 + 2] * 1e4)}`; let a = at.get(k); if (!a) at.set(k, a = []); a.push(v); }
+  const N = new Float32Array(P.length);
+  for (const vs of at.values()) for (const v of vs) {
+    const f = (v / 3 | 0) * 3; let x = 0, y = 0, z = 0;
+    for (const w of vs) { const h = (w / 3 | 0) * 3, a = fa[w / 3 | 0]; if (fn[f] * fn[h] + fn[f + 1] * fn[h + 1] + fn[f + 2] * fn[h + 2] > cosT) { x += fn[h] * a; y += fn[h + 1] * a; z += fn[h + 2] * a; } }
+    const l = Math.hypot(x, y, z) || 1; N[v * 3] = x / l; N[v * 3 + 1] = y / l; N[v * 3 + 2] = z / l;
+  }
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(N, 3));
+}
+
+function getGeom(o) {
+  const k = geomKey(o); let g = gCache.get(k);
+  if (!g) { if (gCache.size > 300) gCache.clear(); g = buildGeom(o); g.userData.edges = o.kind === 'group' ? creaseEdges(g) : new THREE.EdgesGeometry(g, 25); gCache.set(k, g); }
+  return g;
+}
+function groupGeom(o) {
+  let solid = null; const holes = [];
+  for (const c of o.children) {
+    const polys = toPolys(getGeom(c), localMatrix(c));
+    if (c.hole) holes.push(polys); else solid = solid ? csgUnion(solid, polys) : polys;
+  }
+  if (!solid) { solid = holes.reduce((a, h) => a ? csgUnion(a, h) : h, null) || []; return fromPolys(solid); }
+  for (const h of holes) solid = csgSubtract(solid, h);
+  return fromPolys(solid);
+}
+// volume (mm³) and world-space centre of gravity of the parts' solids, uniform density
+function massProps(list) {
+  let V = 0, x = 0, y = 0, z = 0; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  for (const o of list) {
+    const r = roots.get(o.id); if (!r || o.hole) continue;
+    const m = r.userData.mesh; r.updateMatrixWorld(true);
+    const g = m.geometry, P = (g.index ? g.toNonIndexed() : g).attributes.position.array;
+    for (let i = 0; i < P.length; i += 9) {
+      a.fromArray(P, i).applyMatrix4(m.matrixWorld); b.fromArray(P, i + 3).applyMatrix4(m.matrixWorld); c.fromArray(P, i + 6).applyMatrix4(m.matrixWorld);
+      const v = a.dot(b.clone().cross(c)) / 6; V += v; x += v * (a.x + b.x + c.x) / 4; y += v * (a.y + b.y + c.y) / 4; z += v * (a.z + b.z + c.z) / 4;
+    }
+  }
+  return Math.abs(V) < 1e-12 ? null : { vol: Math.abs(V), cog: new THREE.Vector3(x / V, y / V, z / V) };
+}
+
+/* =================== three.js scene =================== */
+const canvas = $('#vp');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+const scene = new THREE.Scene();
+const persp = new THREE.PerspectiveCamera(40, 1, 0.5, 50000);
+const ortho = new THREE.OrthographicCamera(-1, 1, 1, -1, -50000, 50000);
+for (const c of [persp, ortho]) c.up.set(0, 0, 1);
+persp.position.set(220, -260, 200);
+let cam = persp, orthoH = 100, W = 1, H = 1;
+const orbit = new THREE.OrbitControls(persp, canvas);
+orbit.target.set(80, 45, 0); orbit.screenSpacePanning = true; orbit.update();
+const tc = new THREE.TransformControls(persp, canvas);
+tc.setTranslationSnap(1); tc.setRotationSnap(15 * D2R); tc.setSize(0.85);
+scene.add(tc);
+
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8090a0, 0.75));
+const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(0.6, -1, 1.6); scene.add(sun);
+const fill = new THREE.DirectionalLight(0xffffff, 0.25); fill.position.set(-1, 0.8, 0.4); scene.add(fill);
+
+let T = {};
+const gridGroup = new THREE.Group(); scene.add(gridGroup);
+function buildGrid() {
+  gridGroup.clear();
+  const R = 300, mk = (step, col, skipMajor) => {
+    const pts = [];
+    for (let v = -R; v <= R; v += step) { if (skipMajor && Math.abs(v % 50) < 1e-6) continue; if (v === 0) continue; pts.push(-R, v, 0, R, v, 0, v, -R, 0, v, R, 0); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    return new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: col }));
+  };
+  gridGroup.add(mk(10, T.minor, true), mk(50, T.major, false));
+  const ax = (a, b, col) => { const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]); return new THREE.Line(g, new THREE.LineBasicMaterial({ color: col })); };
+  gridGroup.add(ax([-R, 0, 0], [R, 0, 0], T.axX), ax([0, -R, 0], [0, R, 0], T.axY));
+}
+function readTheme() {
+  const cs = getComputedStyle(document.documentElement), g = n => cs.getPropertyValue('--' + n).trim();
+  T = { paper: g('paper'), ink: g('ink'), muted: g('muted'), minor: g('grid-minor'), major: g('grid-major'), axX: g('ax-x'), axY: g('ax-y'), accent: g('accent'), hole: g('hole'), ok: g('ok'), fix: g('fix'), load: g('load') };
+  scene.background = new THREE.Color(T.paper);
+  buildGrid(); buildCogMark(); sync();
+}
+
+const display = { edges: true, wire: false };
+const roots = new Map();
+function makeRoot(o) {
+  const g = getGeom(o), r = new THREE.Group();
+  const mesh = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ roughness: 0.6, metalness: 0.05, polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1, side: THREE.DoubleSide }));
+  const edges = new THREE.LineSegments(g.userData.edges, new THREE.LineBasicMaterial({ transparent: true, opacity: 0.8 }));
+  mesh.userData.id = o.id; r.add(mesh, edges); r.userData = { id: o.id, key: geomKey(o), mesh, edges };
+  return r;
+}
+function sync() {
+  if (edgeMode) { const o = byId(edgeMode.id); if (!o || o.hidden || sel.size !== 1 || !sel.has(o.id)) { edgeMode = null; clearEdgeOverlay(); } }
+  const seen = new Set();
+  for (const o of objs) {
+    seen.add(o.id);
+    let r = roots.get(o.id);
+    if (!r || r.userData.key !== geomKey(o)) { if (r) { if (tc.object === r) tc.detach(); scene.remove(r); } r = makeRoot(o); roots.set(o.id, r); scene.add(r); }
+    r.position.set(...o.pos); r.rotation.set(o.rot[0] * D2R, o.rot[1] * D2R, o.rot[2] * D2R);
+    r.visible = !o.hidden;
+    const m = r.userData.mesh.material, s = sel.has(o.id);
+    m.color.set(o.hole ? T.hole : o.color);
+    m.transparent = o.hole; m.opacity = o.hole ? 0.32 : 1; m.depthWrite = !o.hole;
+    m.wireframe = display.wire;
+    m.emissive.set(s ? T.accent : '#000000'); m.emissiveIntensity = s ? 0.28 : 0;
+    const clip = section.on ? [clipPlane] : null;
+    m.clippingPlanes = clip; m.needsUpdate = true;
+    const em = r.userData.edges.material; em.color.set(s ? T.accent : T.ink); em.opacity = o.hole ? 0.45 : 0.8; em.clippingPlanes = clip; em.needsUpdate = true;
+    r.userData.edges.visible = display.edges && !display.wire;
+  }
+  for (const [id, r] of roots) if (!seen.has(id)) { if (tc.object === r) tc.detach(); scene.remove(r); roots.delete(id); }
+  scene.updateMatrixWorld(true);
+  const one = sel.size === 1 ? roots.get([...sel][0]) : null;
+  if (one && one.visible && !edgeMode && !simPick) { if (tc.object !== one) tc.attach(one); } else tc.detach();
+  if (edgeMode) updEdgeOverlay();
+  if (tool) updToolOverlay();
+  updSimOverlay();
+  updCog();
+}
+
+let rq = false;
+function requestRender() { if (!rq) { rq = true; requestAnimationFrame(() => { rq = false; renderer.render(scene, cam); }); } }
+orbit.addEventListener('change', requestRender);
+tc.addEventListener('change', requestRender);
+let tcUsed = false;
+tc.addEventListener('dragging-changed', e => { orbit.enabled = !e.value; });
+tc.addEventListener('mouseDown', () => { tcUsed = true; pushUndo(); });
+tc.addEventListener('objectChange', () => {
+  const r = tc.object, o = r && byId(r.userData.id); if (!o) return;
+  const snapped = tc.getMode() === 'translate' && $('#tgFaces').getAttribute('aria-pressed') === 'true' ? snapToParts(r) : [];
+  const pos = [r.position.x, r.position.y, r.position.z].map(v => Math.round(v * 1000) / 1000);
+  const rot = [r.rotation.x, r.rotation.y, r.rotation.z].map(v => Math.round(v / D2R * 1000) / 1000);
+  pos.forEach((v, i) => { if (v !== o.pos[i]) unlink(o, 'pos-' + i); }); rot.forEach((v, i) => { if (v !== o.rot[i]) unlink(o, 'rot-' + i); });
+  o.pos = pos; o.rot = rot;
+  $('#coords').textContent = snapped.length ? `Snapped ${snapped.join(', ')}` : `X ${fmt(pos[0])}  Y ${fmt(pos[1])}  Z ${fmt(pos[2])}`;
+  renderProps(); updInfo(); updCog();
+});
+tc.addEventListener('mouseUp', () => { save(); renderTree(); });
+
+function resize() {
+  const r = $('#stage').getBoundingClientRect(); W = Math.max(1, r.width); H = Math.max(1, r.height);
+  renderer.setSize(W, H, false); persp.aspect = W / H; persp.updateProjectionMatrix(); updOrtho(); requestRender();
+  if (firstFit && W > 1 && roots.size) { firstFit = false; setView('iso'); }
+}
+let firstFit = true;
+function updOrtho() { const a = W / H; ortho.left = -orthoH * a; ortho.right = orthoH * a; ortho.top = orthoH; ortho.bottom = -orthoH; ortho.updateProjectionMatrix(); }
+new ResizeObserver(resize).observe($('#stage'));
+
+function setOrtho(on) {
+  if ((cam === ortho) === on) return;
+  const dir = cam.position.clone().sub(orbit.target).normalize();
+  if (on) {
+    const d = persp.position.distanceTo(orbit.target); orthoH = d * Math.tan(persp.fov * D2R / 2); ortho.zoom = 1;
+    ortho.position.copy(orbit.target).addScaledVector(dir, Math.max(d, 1000)); cam = ortho; updOrtho();
+  } else {
+    const d = (orthoH / ortho.zoom) / Math.tan(persp.fov * D2R / 2);
+    persp.position.copy(orbit.target).addScaledVector(dir, d); cam = persp;
+  }
+  orbit.object = cam; tc.camera = cam; orbit.update();
+  $('#tgOrtho').setAttribute('aria-pressed', String(on)); $('#tag').textContent = on ? 'ORTHOGRAPHIC' : 'PERSPECTIVE';
+  requestRender();
+}
+function sceneSphere(onlySel) {
+  scene.updateMatrixWorld(true);
+  const box = new THREE.Box3();
+  for (const o of objs) { if (o.hidden || (onlySel && !sel.has(o.id))) continue; const r = roots.get(o.id); if (r) box.expandByObject(r.userData.mesh); }
+  if (box.isEmpty()) return new THREE.Sphere(new THREE.Vector3(0, 0, 0), 50);
+  return box.getBoundingSphere(new THREE.Sphere());
+}
+function fit(onlySel) {
+  const s = sceneSphere(onlySel && sel.size), dir = cam.position.clone().sub(orbit.target).normalize();
+  orbit.target.copy(s.center);
+  const half = Math.min(persp.fov * D2R / 2, Math.atan(Math.tan(persp.fov * D2R / 2) * W / H));
+  const d = s.radius / Math.sin(half) * 1.05;
+  persp.position.copy(s.center).addScaledVector(dir, d);
+  ortho.position.copy(s.center).addScaledVector(dir, Math.max(d, 1000)); orthoH = s.radius * 1.08 * Math.max(1, H / W); ortho.zoom = 1; updOrtho();
+  orbit.update(); requestRender();
+}
+function setView(v) {
+  if (v === 'fit') return fit(false);
+  const dirs = { top: [0, -0.0001, 1], bottom: [0, -0.0001, -1], front: [0, -1, 0], back: [0, 1, 0], right: [1, 0, 0], left: [-1, 0, 0], iso: [1, -1, 0.82] };
+  const dir = new THREE.Vector3(...dirs[v]).normalize(), d = cam.position.distanceTo(orbit.target);
+  cam.position.copy(orbit.target).addScaledVector(dir, d);
+  orbit.update(); fit(false);
+}
+document.querySelectorAll('.views button').forEach(b => b.onclick = () => { b.blur(); setView(b.dataset.view); });
+
+/* =================== mouse presets =================== */
+// Shared with Planform 2D. 'planform': left-drag orbits, right-drag pans, wheel zooms.
+// 'solidworks': middle-drag rotates, Ctrl+middle pans, Shift+middle zooms, the wheel zooms at the
+// cursor (roll toward you to zoom in), middle double-click fits, right-click or Space opens the
+// view menu, arrow keys rotate 15° (Shift: 90°). 'solidworks-rev' rolls the wheel the other way.
+const MOUSE_KEY = 'planform-mouse';
+let mouse = (() => { try { return localStorage.getItem(MOUSE_KEY) || 'planform'; } catch (_) { return 'planform'; } })();
+const swMouse = () => mouse !== 'planform';
+const ctxEl = $('#ctx');
+let lastMid = { t: 0, x: 0, y: 0 }, lastPtr = { x: 0, y: 0 };
+function applyMouse() {
+  if (!['planform', 'solidworks', 'solidworks-rev'].includes(mouse)) mouse = 'planform';
+  orbit.mouseButtons = swMouse() ? { LEFT: -1, MIDDLE: THREE.MOUSE.ROTATE, RIGHT: -1 } : { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+  orbit.zoomSpeed = mouse === 'solidworks-rev' ? -1 : 1;
+  $('#mouseSel').value = mouse;
+  const sw = swMouse();
+  $('#kOrbK').textContent = sw ? 'Middle-drag' : 'Left-drag'; $('#kOrbV').textContent = sw ? 'rotate · double-click fits' : 'orbit';
+  $('#kPanK').textContent = sw ? 'Ctrl+middle' : 'Right-drag'; $('#kPanV').textContent = sw ? `pan · Shift+middle or wheel zooms${mouse === 'solidworks' ? ' (toward you = in)' : ''}` : 'pan · wheel zooms';
+}
+$('#mouseSel').onchange = e => {
+  mouse = e.target.value; try { localStorage.setItem(MOUSE_KEY, mouse); } catch (_) {}
+  applyMouse(); e.target.blur();
+  toast(swMouse() ? 'SolidWorks mouse: middle-drag rotates, Ctrl+middle pans, Shift+middle zooms, right-click or Space for views.' : 'Planform mouse: left-drag orbits, right-drag pans, wheel zooms.');
+};
+window.addEventListener('storage', e => { if (e.key === MOUSE_KEY && e.newValue) { mouse = e.newValue; applyMouse(); } });
+// capture phase, so these run before OrbitControls' own listeners on the canvas
+canvas.addEventListener('pointerdown', e => {
+  hideMenu();
+  if (!swMouse() || e.button !== 1) return;
+  const now = performance.now(), dbl = now - lastMid.t < 350 && Math.hypot(e.clientX - lastMid.x, e.clientY - lastMid.y) < 6;
+  lastMid = { t: dbl ? 0 : now, x: e.clientX, y: e.clientY };
+  if (dbl) { e.preventDefault(); e.stopImmediatePropagation(); fit(false); return; }
+  orbit.mouseButtons.MIDDLE = e.shiftKey ? THREE.MOUSE.DOLLY : THREE.MOUSE.ROTATE; // Ctrl+rotate pans by itself
+}, true);
+canvas.addEventListener('pointermove', e => { lastPtr = { x: e.clientX, y: e.clientY }; });
+canvas.addEventListener('wheel', e => {
+  if (!swMouse()) return;
+  e.preventDefault(); e.stopImmediatePropagation(); hideMenu();
+  const dy = e.deltaY * (e.deltaMode === 1 ? 33 : 1);
+  zoomAtCursor(e, Math.pow(1.0015, mouse === 'solidworks' ? -dy : dy));
+}, { capture: true, passive: false });
+canvas.addEventListener('contextmenu', e => {
+  e.preventDefault();
+  if (swMouse() && !tcUsed) showMenu(e.clientX, e.clientY);
+});
+// k < 1 moves toward the point under the cursor, k > 1 away from it
+function zoomAtCursor(e, k) {
+  setRay(e);
+  const meshes = [...roots.values()].filter(r => r.visible).map(r => r.userData.mesh);
+  const hit = ray.intersectObjects(meshes, false)[0];
+  const p = hit ? hit.point : ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(cam.getWorldDirection(new THREE.Vector3()), orbit.target), new THREE.Vector3());
+  if (!p) return;
+  const t = orbit.target.clone().sub(p).multiplyScalar(k).add(p), d = t.clone().sub(orbit.target);
+  if (cam === persp) persp.position.sub(p).multiplyScalar(k).add(p);
+  else { ortho.position.add(d); ortho.zoom = Math.min(1e4, Math.max(1e-3, ortho.zoom / k)); ortho.updateProjectionMatrix(); }
+  orbit.target.copy(t); orbit.update(); requestRender();
+}
+function spinView(axis, ang) {
+  const off = cam.position.clone().sub(orbit.target);
+  const ax = axis === 'up' ? new THREE.Vector3(0, 0, 1) : new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
+  off.applyAxisAngle(ax, ang); cam.position.copy(orbit.target).add(off); orbit.update(); requestRender();
+}
+function showMenu(cx, cy) {
+  const items = [['Zoom to fit', 'F', () => fit(false)], null, ['Front', '1', () => setView('front')], ['Back', '', () => setView('back')], ['Left', '', () => setView('left')],
+    ['Right', '3', () => setView('right')], ['Top', '7', () => setView('top')], ['Bottom', '', () => setView('bottom')], ['Isometric', '0', () => setView('iso')], null,
+    [cam === ortho ? 'Perspective' : 'Orthographic', '5', () => setOrtho(cam !== ortho)]];
+  if (sel.size) items.push(['Clear selection', 'Esc', () => { sel.clear(); refresh(false); }]);
+  ctxEl.innerHTML = items.map((it, i) => it ? `<button role="menuitem" data-i="${i}">${it[0]}${it[1] ? `<kbd>${it[1]}</kbd>` : ''}</button>` : '<hr>').join('');
+  ctxEl.hidden = false;
+  const r = $('#stage').getBoundingClientRect();
+  ctxEl.style.left = Math.max(4, Math.min(cx - r.left, r.width - ctxEl.offsetWidth - 4)) + 'px';
+  ctxEl.style.top = Math.max(4, Math.min(cy - r.top, r.height - ctxEl.offsetHeight - 4)) + 'px';
+  ctxEl.onclick = ev => { const b = ev.target.closest('button[data-i]'); if (!b) return; hideMenu(); items[+b.dataset.i][2](); };
+}
+function hideMenu() { if (!ctxEl.hidden) { ctxEl.hidden = true; ctxEl.innerHTML = ''; } }
+document.addEventListener('pointerdown', e => { if (!ctxEl.hidden && !ctxEl.contains(e.target)) hideMenu(); }, true);
+
+/* =================== picking =================== */
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), ground = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+function setRay(e) { const r = canvas.getBoundingClientRect(); ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1); ray.setFromCamera(ndc, cam); }
+let down = null;
+canvas.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, b: e.button }; });
+canvas.addEventListener('pointermove', e => {
+  setRay(e); const p = ray.ray.intersectPlane(ground, new THREE.Vector3());
+  $('#coords').textContent = p ? `X ${p.x.toFixed(1)}  Y ${p.y.toFixed(1)}  on floor` : 'X —  Y —';
+  if (tool && !down) toolMove(e);
+  if (edgeMode && !down) { const h = edgeAt(e); if (h !== edgeMode.hover) { edgeMode.hover = h; canvas.style.cursor = h ? 'pointer' : ''; updEdgeOverlay(); } }
+});
+canvas.addEventListener('pointerup', e => {
+  const d = down; down = null;
+  if (tcUsed) { tcUsed = false; return; }
+  if (!d || d.b !== 0 || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 5) return;
+  if (edgeMode) { const k = edgeAt(e); if (k) pickEdge(k); return; }
+  if (simPick) return simClick(e);
+  if (tool) return toolClick(e);
+  setRay(e);
+  const meshes = [...roots.values()].filter(r => r.visible).map(r => r.userData.mesh);
+  const hit = ray.intersectObjects(meshes, false)[0];
+  const id = hit ? hit.object.userData.id : null;
+  if (e.shiftKey || e.ctrlKey || e.metaKey) { if (id != null) sel.has(id) ? sel.delete(id) : sel.add(id); }
+  else { sel.clear(); if (id != null) sel.add(id); }
+  refresh(false);
+});
+
+/* =================== fillet / chamfer edge picking =================== */
+const edgeOverlay = new THREE.Group();
+const edgeSpec = o => { const f = o.params.fx || {}; return k => k[0] === 'V' ? (f.v || {})[k] : k[0] === 'P' ? (f.p || {})[k] : f[k[0] === 'T' ? 'top' : 'bot']; };
+function toggleEdgeMode() { edgeMode ? exitEdgeMode() : enterEdgeMode(); }
+function enterEdgeMode() {
+  const o = sel.size === 1 ? byId([...sel][0]) : null;
+  if (!o) return toast('Select one part first, then choose Fillet / chamfer (R).', true);
+  if (o.kind === 'group') return toast('Round edges on the parts before grouping: ungroup, fillet, then group again.', true);
+  if (!edgeList(o).length) return toast(`A ${KINDS[o.kind].label.toLowerCase()} has no sharp edges to round.`, true);
+  if (tool) leaveTool();
+  if (simPick) endSimPick();
+  const last = (() => { try { return JSON.parse(localStorage.getItem(KEY + '-edge')); } catch (_) { return null; } })();
+  edgeMode = { id: o.id, picked: new Set(), hover: null, t: last && last.t === 'chamfer' ? 'chamfer' : 'fillet', r: last && last.r > 0 ? last.r : 2 };
+  refresh(false);
+  toast('Click edges to pick them, set the size, then Apply. Esc when done.');
+}
+function exitEdgeMode() { edgeMode = null; canvas.style.cursor = ''; clearEdgeOverlay(); refresh(false); }
+function clearEdgeOverlay() {
+  if (edgeOverlay.parent) edgeOverlay.parent.remove(edgeOverlay);
+  for (const c of edgeOverlay.children) { c.geometry.dispose(); c.material.dispose(); }
+  edgeOverlay.clear(); requestRender();
+}
+function worldPerPx(r) { return pxAt(new THREE.Box3().setFromObject(r.userData.mesh).getCenter(new THREE.Vector3())); }
+// world size of one screen pixel at point p
+function pxAt(p) {
+  if (cam === ortho) return (ortho.top - ortho.bottom) / ortho.zoom / H;
+  return 2 * cam.position.distanceTo(p) * Math.tan(persp.fov * D2R / 2) / H;
+}
+function tubeGeom(e, rad) {
+  const P = e.pts.map(p => new THREE.Vector3(...p)), n = e.closed ? P.length : P.length - 1, path = new THREE.CurvePath();
+  for (let i = 0; i < n; i++) path.add(new THREE.LineCurve3(P[i], P[(i + 1) % P.length]));
+  return new THREE.TubeGeometry(path, Math.max(2, n * 2), rad, 6, e.closed);
+}
+function updEdgeOverlay() {
+  clearEdgeOverlay();
+  const o = edgeMode && byId(edgeMode.id), r = o && roots.get(o.id); if (!r) return;
+  const list = edgeList(o), done = treatedKeys(o), px = worldPerPx(r);
+  const lines = (items, col) => {
+    const a = []; for (const e of items) for (let i = 0; i < e.pts.length - (e.closed ? 0 : 1); i++) a.push(...e.pts[i], ...e.pts[(i + 1) % e.pts.length]);
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(a, 3));
+    const m = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: 0.85 })); m.renderOrder = 10; return m;
+  };
+  const tubes = (items, col, w) => items.forEach(e => {
+    const m = new THREE.Mesh(tubeGeom(e, w * px), new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: 0.9 })); m.renderOrder = 11; edgeOverlay.add(m);
+  });
+  edgeOverlay.add(lines(list.filter(e => !done.has(e.key)), T.muted));
+  tubes(list.filter(e => done.has(e.key) && !edgeMode.picked.has(e.key)), T.ok, 1.1);
+  tubes(list.filter(e => edgeMode.picked.has(e.key)), T.accent, 2.2);
+  if (edgeMode.hover && !edgeMode.picked.has(edgeMode.hover)) tubes(list.filter(e => e.key === edgeMode.hover), T.ink, 1.6);
+  r.add(edgeOverlay); requestRender();
+}
+orbit.addEventListener('end', () => { if (edgeMode) updEdgeOverlay(); });
+// the edge within 9 px of the pointer, nearest first
+function edgeAt(e) {
+  const o = edgeMode && byId(edgeMode.id), r = o && roots.get(o.id); if (!r) return null;
+  const rc = canvas.getBoundingClientRect(), mx = e.clientX - rc.left, my = e.clientY - rc.top, v = new THREE.Vector3();
+  const scr = p => { v.set(p[0], p[1], p[2]).applyMatrix4(r.matrixWorld).project(cam); return [(v.x + 1) / 2 * rc.width, (1 - v.y) / 2 * rc.height, v.z]; };
+  let best = null, bd = 9;
+  for (const ed of edgeList(o)) {
+    const S = ed.pts.map(scr), n = ed.closed ? S.length : S.length - 1;
+    for (let i = 0; i < n; i++) {
+      const a = S[i], b = S[(i + 1) % S.length]; if (a[2] > 1 || b[2] > 1) continue;
+      const dx = b[0] - a[0], dy = b[1] - a[1], L2 = dx * dx + dy * dy, t = L2 ? Math.max(0, Math.min(1, ((mx - a[0]) * dx + (my - a[1]) * dy) / L2)) : 0;
+      const d = Math.hypot(a[0] + dx * t - mx, a[1] + dy * t - my); if (d < bd) { bd = d; best = ed.key; }
+    }
+  }
+  return best;
+}
+function pickEdge(k) {
+  const P = edgeMode.picked;
+  if (P.has(k)) P.delete(k);
+  else { P.add(k); const s = edgeSpec(byId(edgeMode.id))(k); if (s && (!s.segs || s.segs.includes(k))) { edgeMode.t = s.t; edgeMode.r = s.r; edgeMode.rx = s.rx || null; } }
+  updEdgeOverlay(); renderProps();
+}
+function applyEdges(remove) {
+  const o = edgeMode && byId(edgeMode.id), keys = edgeMode ? [...edgeMode.picked] : [];
+  if (!o || !keys.length) return toast('Pick one or more edges first.', true);
+  const r = edgeMode.r; if (!remove && !(r > 0)) return toast('Size must be greater than zero.', true);
+  pushUndo();
+  const fx = o.params.fx = o.params.fx || {}, spec = Object.assign({ t: edgeMode.t, r }, edgeMode.rx ? { rx: edgeMode.rx } : {});
+  let shared = 0;
+  if (!remove) for (const [tag, nm] of [['T', 'top'], ['B', 'bot']]) {
+    const s = fx[nm]; if (s && keys.some(k => k[0] === tag) && (s.t !== spec.t || s.r !== r)) shared += s.segs.filter(x => !keys.includes(x)).length;
+  }
+  for (const k of keys) {
+    if (k[0] === 'V' || k[0] === 'P') { const nm = k[0].toLowerCase(), m = fx[nm] = fx[nm] || {}; if (remove) delete m[k]; else m[k] = { ...spec }; continue; }
+    const nm = k[0] === 'T' ? 'top' : 'bot', s = fx[nm];
+    if (remove) { if (s) s.segs = s.segs.filter(x => x !== k); continue; }
+    if (s) { Object.assign(s, spec); if (!spec.rx) delete s.rx; if (!s.segs.includes(k)) s.segs.push(k); }
+    else fx[nm] = { ...spec, segs: [k] };
+  }
+  for (const nm of ['v', 'p']) if (fx[nm] && !Object.keys(fx[nm]).length) delete fx[nm];
+  for (const nm of ['top', 'bot']) if (fx[nm] && !fx[nm].segs.length) delete fx[nm];
+  if (!Object.keys(fx).length) delete o.params.fx;
+  if (!remove) try { localStorage.setItem(KEY + '-edge', JSON.stringify(spec)); } catch (_) {}
+  edgeMode.picked.clear(); refresh();
+  const g = roots.get(o.id) && roots.get(o.id).userData.mesh.geometry;
+  const what = remove ? `Made ${keys.length} edge${keys.length > 1 ? 's' : ''} sharp.` : `${spec.t === 'chamfer' ? 'Chamfered' : 'Filleted'} ${keys.length} edge${keys.length > 1 ? 's' : ''} at ${fmt(r)} mm.`;
+  toast(what + (shared ? ` ${shared} other ${shared > 1 ? 'edges' : 'edge'} on the same face changed too: top edges share one size, and so do bottom edges.` : '')
+    + (g && g.userData.clipped ? ' Some sizes were too big for the part and were reduced to fit.' : '')
+    + (g && g.userData.overlap ? ' Some rounds overlap each other or run past the material, so the shape is not valid: make them smaller.' : ''),
+    !!(g && (g.userData.clipped || g.userData.overlap)));
+}
+function edgePanel(o) {
+  const n = edgeMode.picked.size, done = treatedKeys(o).size, pl = c => `${c} edge${c === 1 ? '' : 's'}`;
+  return `<p class="sub">Fillet / chamfer edges</p>
+    <div class="prop"><span>Part</span><output>${esc(o.name)}</output></div>
+    <div class="prop"><span>Shape</span><div class="seg" role="group" aria-label="Edge shape"><button data-et="fillet" aria-pressed="${edgeMode.t === 'fillet'}">Fillet</button><button data-et="chamfer" aria-pressed="${edgeMode.t === 'chamfer'}">Chamfer</button></div></div>
+    <label class="prop"><span>${edgeMode.t === 'fillet' ? 'Radius' : 'Distance'} (mm)</span><input id="eR" inputmode="decimal" value="${edgeMode.rx ? esc(edgeMode.rx) : fmt(edgeMode.r)}"${edgeMode.rx ? ` class="ex" title="= ${fmt(edgeMode.r)}"` : ''}></label>
+    <div class="prop"><span>Picked</span><output>${pl(n)}</output></div>
+    <div class="eacts">
+      <button class="btn primary" data-ea="apply"${n ? '' : ' disabled'}>Apply</button>
+      <button class="btn" data-ea="sharp"${n ? '' : ' disabled'} title="Remove the fillet or chamfer from the picked edges">Make sharp</button>
+      <button class="btn" data-ea="all">Pick all</button>
+      <button class="btn" data-ea="clear"${n ? '' : ' disabled'}>Clear</button>
+      <button class="btn" data-ea="done">Done</button>
+    </div>
+    <div class="prop"><span>Already rounded</span><output>${pl(done)}</output></div>
+    <p class="empty">Click edges in the view to pick them (blue). Green edges are already rounded; pick one to see or change its size. All top edges of a part share one size, and so do all bottom edges. Esc finishes.</p>`;
+}
+
+/* =================== named sizes =================== */
+// Fields hold numbers or formulas of named sizes. A part keeps each linked field's formula in
+// o.ex[fieldId] ('pp-w', 'pos-0', 'rot-2'…) and fillet specs keep theirs in spec.rx; the number
+// stored alongside is the last evaluated value, so geometry code never sees formulas.
+const NAME_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const FUNCS = { sqrt: Math.sqrt, abs: Math.abs, min: Math.min, max: Math.max, round: Math.round, floor: Math.floor, ceil: Math.ceil,
+  sin: x => Math.sin(x * D2R), cos: x => Math.cos(x * D2R), tan: x => Math.tan(x * D2R) };
+const isPlainNum = s => /^\s*[-+]?(\d+\.?\d*|\.\d+)(e[+-]?\d+)?\s*$/i.test(s);
+// numbers, size names, pi, + - * / ^ ( ) and FUNCS (angles in degrees); throws an Error with a readable message
+function evalExpr(src, env) {
+  const s = String(src); let i = 0;
+  const ws = () => { while (i < s.length && /\s/.test(s[i])) i++; };
+  const sum = () => { let v = prod(); for (;;) { ws(); const c = s[i]; if (c !== '+' && c !== '-') return v; i++; const r = prod(); v = c === '+' ? v + r : v - r; } };
+  const prod = () => { let v = unary(); for (;;) { ws(); const c = s[i]; if (c !== '*' && c !== '/') return v; i++; const r = unary(); v = c === '*' ? v * r : v / r; } };
+  const unary = () => { ws(); if (s[i] === '-') { i++; return -unary(); } if (s[i] === '+') { i++; return unary(); } return power(); };
+  const power = () => { const b = atom(); ws(); if (s[i] === '^') { i++; return Math.pow(b, unary()); } return b; };
+  const atom = () => {
+    ws();
+    if (s[i] === '(') { i++; const v = sum(); ws(); if (s[i] !== ')') throw Error('a “)” is missing'); i++; return v; }
+    const num = /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(s.slice(i)); if (num) { i += num[0].length; return parseFloat(num[0]); }
+    const id = /^[A-Za-z_][A-Za-z0-9_]*/.exec(s.slice(i));
+    if (id) {
+      i += id[0].length; ws();
+      if (s[i] === '(') {
+        const f = FUNCS[id[0]]; if (!f) throw Error(`there is no function called ${id[0]}`);
+        i++; const args = [sum()]; ws(); while (s[i] === ',') { i++; args.push(sum()); ws(); }
+        if (s[i] !== ')') throw Error('a “)” is missing'); i++; return f(...args);
+      }
+      if (id[0] === 'pi') return Math.PI;
+      if (!(id[0] in env)) throw Error(`there is no size called “${id[0]}”`);
+      if (!isFinite(env[id[0]])) throw Error(`size “${id[0]}” has an error`);
+      return env[id[0]];
+    }
+    throw Error(i < s.length ? `“${s[i]}” is not understood` : 'the formula is incomplete');
+  };
+  const v = sum(); ws();
+  if (i < s.length) throw Error(`“${s[i]}” is not understood`);
+  if (!isFinite(v)) throw Error('the result is not a number');
+  return v;
+}
+// values of the first `upto` sizes (all by default); each size may use the ones above it
+function sizeEnv(upto = vars.length) {
+  const env = Object.create(null);
+  for (const v of vars.slice(0, upto)) { try { env[v.name] = evalExpr(v.expr, env); } catch (_) { env[v.name] = NaN; } }
+  return env;
+}
+const nameRe = (name, flags = '') => new RegExp(`(^|[^A-Za-z0-9_])${name}(?![A-Za-z0-9_])`, flags);
+function eachPart(f) { const walk = L => L.forEach(o => { f(o); if (o.children) walk(o.children); }); walk(objs); }
+function fxSpecs(o) { const f = o.params.fx; return f ? [...Object.values(f.v || {}), ...Object.values(f.p || {}), f.top, f.bot].filter(Boolean) : []; }
+// drop formula links on fields whose id starts with one of the prefixes (the value was set some other way)
+function unlink(o, ...prefixes) { if (!o.ex) return; for (const id of Object.keys(o.ex)) if (prefixes.some(p => id.startsWith(p))) delete o.ex[id]; if (!Object.keys(o.ex).length) delete o.ex; }
+// set one Properties field; returns an error message, or '' when it was accepted
+function fieldSet(o, id, v) {
+  if (id.startsWith('pp-')) {
+    const k = id.slice(3), int = ['seg', 'sides'].includes(k);
+    if (k === 'top' ? v < 0 : v <= 0) return 'Sizes must be greater than zero.';
+    o.params[k] = int ? Math.max(3, Math.min(256, Math.round(v))) : k === 'angle' ? Math.min(360, v) : v;
+  } else if (id.startsWith('pos-')) o.pos[+id.slice(4)] = v;
+  else if (id.startsWith('rot-')) o.rot[+id.slice(4)] = v;
+  return '';
+}
+// re-evaluate every linked field; returns how many could not take their new value
+function applySizes() {
+  const env = sizeEnv(); let bad = 0;
+  eachPart(o => {
+    for (const [id, ex] of Object.entries(o.ex || {})) { try { if (fieldSet(o, id, evalExpr(ex, env))) bad++; } catch (_) { bad++; } }
+    for (const s of fxSpecs(o)) if (s.rx) { try { const v = evalExpr(s.rx, env); if (v > 0) s.r = v; else bad++; } catch (_) { bad++; } }
+  });
+  return bad;
+}
+function renderVars() {
+  const env = sizeEnv();
+  $('#vars').innerHTML = vars.length ? vars.map((v, i) => `<div class="vrow">
+      <input data-vn="${i}" value="${esc(v.name)}" aria-label="Size name" spellcheck="false" autocomplete="off">
+      <span>=</span>
+      <input data-ve="${i}" value="${esc(v.expr)}" aria-label="Value of ${esc(v.name)}" spellcheck="false" autocomplete="off">
+      <output>${isPlainNum(v.expr) ? '' : isFinite(env[v.name]) ? fmt(env[v.name]) : '?'}</output>
+      <button data-vd="${i}" title="Delete ${esc(v.name)}" aria-label="Delete ${esc(v.name)}">×</button></div>`).join('')
+    : '<p class="empty">Name a size, like thickness = 6, then type its name (or a formula such as thickness*2 + 1) in any size, position, rotation or fillet field. Change it here and every field that uses it follows.</p>';
+}
+$('#bAddVar').onclick = e => {
+  e.currentTarget.blur(); pushUndo();
+  let k = vars.length + 1; while (vars.some(v => v.name === 'size' + k)) k++;
+  vars.push({ name: 'size' + k, expr: '10' }); renderVars(); save();
+  const el = document.querySelector(`[data-vn="${vars.length - 1}"]`); el.focus(); el.select();
+};
+$('#vars').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.vn != null) {
+    const i = +t.dataset.vn, old = vars[i].name, nm = t.value.trim();
+    if (nm === old) return;
+    if (!NAME_RE.test(nm) || nm in FUNCS || nm === 'pi') { toast('A name starts with a letter and uses only letters, digits and _.', true); return renderVars(); }
+    if (vars.some(v => v.name === nm)) { toast(`There is already a size called ${nm}.`, true); return renderVars(); }
+    pushUndo();
+    const re = nameRe(old, 'g'), rn = ex => ex.replace(re, `$1${nm}`);
+    vars[i].name = nm; vars.forEach(v => v.expr = rn(v.expr));
+    eachPart(o => { for (const id in o.ex || {}) o.ex[id] = rn(o.ex[id]); fxSpecs(o).forEach(s => { if (s.rx) s.rx = rn(s.rx); }); });
+    if (edgeMode && edgeMode.rx) edgeMode.rx = rn(edgeMode.rx);
+    return refresh();
+  }
+  if (t.dataset.ve != null) {
+    const i = +t.dataset.ve, ex = t.value.trim();
+    try { evalExpr(ex, sizeEnv(i)); } catch (err) { toast(`${vars[i].name}: ${err.message}. A size can use the sizes listed above it.`, true); return renderVars(); }
+    pushUndo(); vars[i].expr = ex;
+    const bad = applySizes(); refresh();
+    if (bad) toast(`${bad} field${bad > 1 ? 's' : ''} could not take the new value and kept the old one.`, true);
+  }
+});
+$('#vars').addEventListener('click', e => {
+  const b = e.target.closest('[data-vd]'); if (!b) return;
+  const i = +b.dataset.vd, nm = vars[i].name, val = sizeEnv()[nm], re = nameRe(nm);
+  pushUndo(); vars.splice(i, 1);
+  // sizes below keep working with the number in place of the name; linked fields keep their current value
+  const reg = nameRe(nm, 'g');
+  vars.forEach(v => { if (re.test(v.expr)) v.expr = v.expr.replace(reg, `$1(${isFinite(val) ? fmt(val) : 0})`); });
+  let n = 0;
+  eachPart(o => {
+    for (const [id, ex] of Object.entries(o.ex || {})) if (re.test(ex)) { delete o.ex[id]; n++; }
+    if (o.ex && !Object.keys(o.ex).length) delete o.ex;
+    fxSpecs(o).forEach(s => { if (s.rx && re.test(s.rx)) { delete s.rx; n++; } });
+  });
+  refresh(); toast(`Deleted ${nm}.${n ? ` ${n > 1 ? `${n} fields that used it keep their` : '1 field that used it keeps its'} current value.` : ''}`);
+});
+$('#vars').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
+// a typed size: a plain number, or a formula that stays linked; throws on a bad formula
+function readSize(raw) { raw = String(raw).trim(); return isPlainNum(raw) ? { v: parseFloat(raw), ex: null } : { v: evalExpr(raw, sizeEnv()), ex: raw }; }
+
+/* =================== centre of gravity marker =================== */
+const cogMark = new THREE.Group(); cogMark.visible = false; scene.add(cogMark);
+function buildCogMark() { // the usual quartered-circle symbol, as a ball of eight alternating octants
+  for (const c of cogMark.children) { c.geometry.dispose(); c.material.dispose(); }
+  cogMark.clear();
+  for (let q = 0; q < 4; q++) for (let h = 0; h < 2; h++) {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(1, 8, 4, q * Math.PI / 2, Math.PI / 2, h * Math.PI / 2, Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: (q + h) % 2 ? T.ink : T.paper, depthTest: false }));
+    m.renderOrder = 12; cogMark.add(m);
+  }
+}
+function updCog() {
+  const items = [...sel].map(byId).filter(o => o && !o.hidden);
+  const mp = items.length && !edgeMode && !tool ? massProps(items) : null;
+  cogMark.visible = !!mp;
+  if (mp) { cogMark.position.copy(mp.cog); cogMark.scale.setScalar(5 * pxAt(mp.cog)); }
+  requestRender();
+}
+
+/* =================== picking points, edges and faces =================== */
+const V3 = THREE.Vector3;
+// local-space keys of the true corners of a part: where edges meet at an angle, not the facet points of a round edge
+const vkey = (x, y, z) => `${Math.round(x * 1e3)},${Math.round(y * 1e3)},${Math.round(z * 1e3)}`;
+function cornersOf(r) {
+  const eg = r.userData.edges.geometry; if (eg.userData.corners) return eg.userData.corners;
+  const E = eg.attributes.position.array, dirs = new Map();
+  for (let i = 0; i < E.length; i += 6) for (const [s, t] of [[i, i + 3], [i + 3, i]]) {
+    const k = vkey(E[s], E[s + 1], E[s + 2]), d = new V3(E[t] - E[s], E[t + 1] - E[s + 1], E[t + 2] - E[s + 2]).normalize();
+    if (!dirs.has(k)) dirs.set(k, []); dirs.get(k).push(d);
+  }
+  const out = new Set();
+  for (const [k, D] of dirs) if (D.length !== 2 || D[0].dot(D[1]) > -Math.cos(35 * D2R)) out.add(k);
+  return (eg.userData.corners = out);
+}
+// what is under the pointer: a corner, then an edge, then a face, of a visible part
+function snapPick(e, facesOnly) {
+  setRay(e);
+  const meshes = [...roots.values()].filter(r => r.visible).map(r => r.userData.mesh);
+  const hit = ray.intersectObjects(meshes, false)[0];
+  const faceOf = () => hit && { kind: 'face', id: hit.object.userData.id, p: hit.point.clone(),
+    n: hit.face.normal.clone().applyMatrix3(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld)).normalize() };
+  if (facesOnly) return faceOf();
+  const rc = canvas.getBoundingClientRect(), mx = e.clientX - rc.left, my = e.clientY - rc.top;
+  const scr = v => { const q = v.clone().project(cam); return [(q.x + 1) / 2 * rc.width, (1 - q.y) / 2 * rc.height, q.z]; };
+  const O = ray.ray.origin, D = ray.ray.direction, depthOk = v => !hit || v.clone().sub(O).dot(D) <= hit.distance * 1.002 + 1e-6; // not hidden behind the face under the pointer
+  let bv = 10, bestV = null, be = 7, bestE = null;
+  for (const r of hit ? [roots.get(hit.object.userData.id)] : [...roots.values()].filter(r => r.visible)) {
+    const E = r.userData.edges.geometry.attributes.position.array, M = r.userData.mesh.matrixWorld, C = cornersOf(r);
+    for (let i = 0; i < E.length; i += 6) {
+      const a = new V3().fromArray(E, i).applyMatrix4(M), b = new V3().fromArray(E, i + 3).applyMatrix4(M), sa = scr(a), sb = scr(b);
+      if (sa[2] > 1 || sb[2] > 1) continue;
+      for (const [s, v, j] of [[sa, a, i], [sb, b, i + 3]]) {
+        if (!C.has(vkey(E[j], E[j + 1], E[j + 2]))) continue;
+        const d = Math.hypot(s[0] - mx, s[1] - my); if (d < bv && depthOk(v)) { bv = d; bestV = { v, r }; }
+      }
+      const dx = sb[0] - sa[0], dy = sb[1] - sa[1], L2 = dx * dx + dy * dy, t = L2 ? Math.max(0, Math.min(1, ((mx - sa[0]) * dx + (my - sa[1]) * dy) / L2)) : 0;
+      const d = Math.hypot(sa[0] + dx * t - mx, sa[1] + dy * t - my), p = a.clone().lerp(b, t);
+      if (d < be && depthOk(p)) { be = d; bestE = { a, b, p, r }; }
+    }
+  }
+  if (bestV) return { kind: 'vertex', id: bestV.r.userData.id, p: bestV.v };
+  if (bestE) return Object.assign({ kind: 'edge', id: bestE.r.userData.id, p: bestE.p }, edgeShape(bestE.r, bestE.a, bestE.b));
+  return faceOf();
+}
+// follow the feature edges joined smoothly to segment a-b; a straight run reports its length, a round one its circle
+function edgeShape(r, a, b) {
+  const E = r.userData.edges.geometry.attributes.position.array, M = r.userData.mesh.matrixWorld, segs = [], at = new Map();
+  const key = v => `${Math.round(v.x * 1e3)},${Math.round(v.y * 1e3)},${Math.round(v.z * 1e3)}`;
+  for (let i = 0; i < E.length; i += 6) {
+    const s = [new V3().fromArray(E, i).applyMatrix4(M), new V3().fromArray(E, i + 3).applyMatrix4(M)]; segs.push(s);
+    for (const v of s) { const k = key(v); if (!at.has(k)) at.set(k, []); at.get(k).push(segs.length - 1); }
+  }
+  const start = segs.findIndex(s => (key(s[0]) === key(a) && key(s[1]) === key(b)) || (key(s[0]) === key(b) && key(s[1]) === key(a)));
+  const used = new Set([start]), pts = [a.clone(), b.clone()];
+  const grow = (front) => {
+    for (;;) {
+      const end = front ? pts[pts.length - 1] : pts[0], prev = front ? pts[pts.length - 2] : pts[1], dir = end.clone().sub(prev).normalize();
+      let next = null;
+      for (const j of at.get(key(end)) || []) {
+        if (used.has(j)) continue;
+        const o = key(segs[j][0]) === key(end) ? segs[j][1] : segs[j][0];
+        if (o.clone().sub(end).normalize().dot(dir) > Math.cos(35 * D2R)) { next = { j, o }; break; }
+      }
+      if (!next) return;
+      used.add(next.j);
+      if (key(next.o) === key(front ? pts[0] : pts[pts.length - 1])) return; // went all the way round
+      front ? pts.push(next.o.clone()) : pts.unshift(next.o.clone());
+    }
+  };
+  grow(true); grow(false);
+  let len = 0; for (let i = 1; i < pts.length; i++) len += pts[i].distanceTo(pts[i - 1]);
+  const first = pts[0], last = pts[pts.length - 1], mid = pts[pts.length >> 1];
+  if (pts.length >= 4) {
+    const u = first.clone().sub(last), w = mid.clone().sub(last), n = u.clone().cross(w), n2 = n.lengthSq();
+    if (n2 > 1e-12) {
+      const c = last.clone().add(w.clone().multiplyScalar(u.lengthSq()).sub(u.clone().multiplyScalar(w.lengthSq())).cross(n).multiplyScalar(1 / (2 * n2)));
+      const R = c.distanceTo(first), nn = n.normalize();
+      if (pts.every(p => Math.abs(p.distanceTo(c) - R) < 0.01 * R && Math.abs(p.clone().sub(c).dot(nn)) < 0.01 * R)) return { pts, len, circle: { c, r: R, n: nn } };
+    }
+  }
+  return { pts, len, dir: last.clone().sub(first).normalize() };
+}
+
+/* =================== measure and align tools =================== */
+let meas = null;  // { picks: [up to 2], hover }
+let align = null; // { src } the face picked on the part to move
+const toolOverlay = new THREE.Group(); scene.add(toolOverlay);
+function leaveTool() { tool = null; meas = align = null; canvas.style.cursor = ''; $('#toolbar').hidden = true; clearToolOverlay(); }
+function setTool(t) {
+  if (simPick) endSimPick();
+  if (edgeMode) { edgeMode = null; clearEdgeOverlay(); }
+  const on = tool !== t; leaveTool();
+  if (on) {
+    tool = t; canvas.style.cursor = 'crosshair'; $('#toolbar').hidden = false;
+    if (t === 'measure') meas = { picks: [], hover: null };
+    else { align = { src: null }; const o = sel.size === 1 && byId([...sel][0]); if (o && o.hidden) sel.clear(); }
+  }
+  updToolBar(); refresh(false);
+}
+const xyz = v => `(${fmt(v.x)}, ${fmt(v.y)}, ${fmt(v.z)})`;
+const ptOf = P => P.circle ? P.circle.c : P.p;
+function describe(P) {
+  if (P.kind === 'vertex') return `Corner at ${xyz(P.p)}`;
+  if (P.kind === 'edge') return P.circle ? `Circle Ø${fmt(2 * P.circle.r)} (R${fmt(P.circle.r)}), centre ${xyz(P.circle.c)}` : `Edge, length ${fmt(P.len)} mm`;
+  return `Face at ${xyz(P.p)}`;
+}
+function measLines() {
+  const [A, B] = meas.picks, L = [];
+  if (!A) return ['Click a corner, edge or face. Click a second one to measure between them.'];
+  if (!B) return [describe(A), 'Click a second corner, edge or face.'];
+  const pa = ptOf(A), pb = ptOf(B), d = pb.clone().sub(pa);
+  L.push(`${A.circle && B.circle ? 'Centre to centre' : A.circle || B.circle ? 'From the circle centre' : 'Distance'} ${fmt(d.length())} mm  ·  ΔX ${fmt(d.x)}  ΔY ${fmt(d.y)}  ΔZ ${fmt(d.z)}`);
+  const ang = (u, v) => Math.acos(Math.max(-1, Math.min(1, u.dot(v)))) / D2R;
+  if (A.kind === 'face' && B.kind === 'face') {
+    const a = ang(A.n, B.n);
+    if (a < 0.05 || a > 179.95) L.push(`Faces are parallel, ${fmt(Math.abs(d.dot(A.n)))} mm apart`);
+    else L.push(`Angle between faces ${fmt(a)}°`);
+  } else if (A.kind === 'face' || B.kind === 'face') {
+    const F = A.kind === 'face' ? A : B, P = F === A ? B : A;
+    L.push(`Square to the face: ${fmt(Math.abs(ptOf(P).clone().sub(F.p).dot(F.n)))} mm`);
+    if (P.dir) L.push(`Edge to face angle ${fmt(Math.abs(90 - ang(P.dir, F.n)))}°`);
+  } else if (A.dir && B.dir) {
+    const a = ang(A.dir, B.dir); L.push(`Angle between edges ${fmt(Math.min(a, 180 - a))}°`);
+  }
+  return L;
+}
+function updToolBar() {
+  const bar = $('#toolbar'); if (!tool) return;
+  const lines = tool === 'measure' ? measLines()
+    : [align.src ? `Face picked on ${esc(byId(align.src.id).name)}. Now click the face on another part it should sit against.` : 'Click a face on the part to move.',
+       'The part turns so the two faces meet, and the clicked points touch.'];
+  bar.innerHTML = `<b>${tool === 'measure' ? 'Measure' : 'Align face to face'}</b>${lines.map((l, i) => `<div${i ? '' : ' class="big"'}>${esc(l)}</div>`).join('')}<div class="k">Esc to finish</div>`;
+}
+function clearToolOverlay() {
+  for (const c of toolOverlay.children) { c.geometry.dispose(); c.material.dispose(); }
+  toolOverlay.clear(); requestRender();
+}
+function updToolOverlay() {
+  clearToolOverlay(); if (!tool) return;
+  const dot = (p, col, px) => { const m = new THREE.Mesh(new THREE.SphereGeometry(px * pxAt(p), 12, 8), new THREE.MeshBasicMaterial({ color: col, depthTest: false })); m.position.copy(p); m.renderOrder = 13; toolOverlay.add(m); };
+  const line = (pts, col, closed) => { const g = new THREE.BufferGeometry().setFromPoints(closed ? [...pts, pts[0]] : pts); const l = new THREE.Line(g, new THREE.LineBasicMaterial({ color: col, depthTest: false })); l.renderOrder = 13; toolOverlay.add(l); };
+  const show = (P, col, px) => {
+    if (P.kind === 'edge') { line(P.pts, col, !!P.circle && P.pts[0].distanceTo(P.pts[P.pts.length - 1]) < P.circle.r); if (P.circle) dot(P.circle.c, col, px * 0.8); }
+    dot(P.p, col, px);
+  };
+  const picks = meas ? meas.picks : align && align.src ? [align.src] : [];
+  picks.forEach(P => show(P, T.accent, 4));
+  if (meas && meas.picks.length === 2) line([ptOf(meas.picks[0]), ptOf(meas.picks[1])], T.accent);
+  const hv = meas ? meas.hover : align && align.hover;
+  if (hv) show(hv, T.ink, 3);
+  requestRender();
+}
+orbit.addEventListener('end', () => { if (tool) updToolOverlay(); updCog(); });
+function toolMove(e) {
+  const h = snapPick(e, tool === 'align'), st = tool === 'measure' ? meas : align, old = st.hover;
+  st.hover = h;
+  if (!old !== !h || (h && old && (h.kind !== old.kind || h.p.distanceToSquared(old.p) > 1e-6))) updToolOverlay();
+}
+function toolClick(e) {
+  const h = snapPick(e, tool === 'align'); if (!h) return;
+  if (tool === 'measure') { if (meas.picks.length >= 2) meas.picks = []; meas.picks.push(h); meas.hover = null; updToolBar(); return updToolOverlay(); }
+  if (!align.src) { align.src = h; align.hover = null; sel.clear(); sel.add(h.id); refresh(false); updToolBar(); return updToolOverlay(); }
+  if (h.id === align.src.id) return toast('Click a face on a different part.', true);
+  const o = byId(align.src.id), target = byId(h.id);
+  // turn the picked face to point against the target face, then carry the picked point onto the target point
+  const q = new THREE.Quaternion().setFromUnitVectors(align.src.n, h.n.clone().negate());
+  const q1 = q.clone().multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(o.rot[0] * D2R, o.rot[1] * D2R, o.rot[2] * D2R)));
+  const P = new V3(...o.pos), np = h.p.clone().sub(align.src.p.clone().sub(P).applyQuaternion(q)), eu = new THREE.Euler().setFromQuaternion(q1);
+  pushUndo();
+  o.pos = [np.x, np.y, np.z].map(v => Math.round(v * 1000) / 1000);
+  o.rot = [eu.x, eu.y, eu.z].map(v => Math.round(v / D2R * 1000) / 1000);
+  unlink(o, 'pos-', 'rot-');
+  align.src = null; refresh(); updToolBar(); updToolOverlay();
+  toast(`${o.name} now sits against ${target.name}. Click two more faces to align again, or Esc.`);
+}
+
+/* =================== snap to other parts while moving =================== */
+// line the moving part's faces or centre up with another part's faces or centre (or the floor), on the dragged axes
+function snapToParts(r) {
+  r.updateMatrixWorld(true);
+  const me = new THREE.Box3().setFromObject(r.userData.mesh); if (me.isEmpty()) return [];
+  const thr = 8 * pxAt(me.getCenter(new V3())), axes = String(tc.axis || ''), got = [];
+  const boxes = objs.filter(o => o.id !== r.userData.id && !o.hidden && roots.get(o.id)).map(o => ({ o, b: new THREE.Box3().setFromObject(roots.get(o.id).userData.mesh) }));
+  for (const ax of ['x', 'y', 'z']) {
+    if (!axes.includes(ax.toUpperCase())) continue;
+    const mv = [me.min[ax], me.max[ax], (me.min[ax] + me.max[ax]) / 2];
+    let best = null, who = null;
+    const tryT = (t, name) => { for (const m of mv) { const d = t - m; if (Math.abs(d) < thr && (best === null || Math.abs(d) < Math.abs(best))) { best = d; who = name; } } };
+    for (const { o, b } of boxes) for (const t of [b.min[ax], b.max[ax], (b.min[ax] + b.max[ax]) / 2]) tryT(t, o.name);
+    if (ax === 'z') tryT(0, 'the floor');
+    if (best !== null) { r.position[ax] += best; me.min[ax] += best; me.max[ax] += best; got.push(`${ax.toUpperCase()} to ${who}`); }
+  }
+  r.updateMatrixWorld(true);
+  return got;
+}
+
+/* =================== actions =================== */
+const snapOn = () => $('#tgSnap').getAttribute('aria-pressed') === 'true';
+const step = () => +$('#snapStep').value;
+function addKind(kind) {
+  pushUndo();
+  const o = makeObj(kind), s = snapOn() ? Math.max(step(), 1) : 1;
+  o.pos = [Math.round(orbit.target.x / s) * s, Math.round(orbit.target.y / s) * s, 0];
+  objs.push(o); sel.clear(); sel.add(o.id); tc.setMode('translate'); refresh();
+  toast(`${o.name} added. Drag the arrows to move it, or type exact sizes in Properties.`);
+}
+function delSel() { if (!sel.size) return; pushUndo(); const n = sel.size; objs = objs.filter(o => !sel.has(o.id)); sel.clear(); refresh(); toast(`Deleted ${n} object${n > 1 ? 's' : ''}.`); }
+function dupSel() {
+  if (!sel.size) return; pushUndo(); const add = [];
+  for (const o of objs) if (sel.has(o.id)) { const c = clone(o); c.id = nextId++; c.name = o.name + ' copy'; c.pos = [o.pos[0] + 10, o.pos[1] + 10, o.pos[2]]; unlink(c, 'pos-'); add.push(c); }
+  objs.push(...add); sel.clear(); add.forEach(c => sel.add(c.id)); refresh();
+}
+function groupSel() {
+  if (sel.size < 2) return toast('Select two or more objects (Shift+click) to group them.', true);
+  pushUndo();
+  const kids = objs.filter(o => sel.has(o.id) && !o.hidden);
+  const box = new THREE.Box3(); kids.forEach(o => box.expandByObject(roots.get(o.id).userData.mesh));
+  const c = box.getCenter(new THREE.Vector3()), origin = [Math.round(c.x * 100) / 100, Math.round(c.y * 100) / 100, Math.round(box.min.z * 100) / 100];
+  const g = makeObj('group', { color: (kids.find(k => !k.hole) || kids[0]).color, pos: origin });
+  g.children = kids.map(k => { const c = Object.assign(clone(k), { pos: [k.pos[0] - origin[0], k.pos[1] - origin[1], k.pos[2] - origin[2]] }); unlink(c, 'pos-'); return c; });
+  objs = objs.filter(o => !sel.has(o.id)); objs.push(g); sel.clear(); sel.add(g.id);
+  toast(kids.some(k => k.hole) ? 'Cutting holes…' : 'Joining…');
+  setTimeout(() => {
+    const t0 = performance.now(); refresh();
+    toast(`Grouped ${kids.length} objects${kids.some(k => k.hole) ? ': holes cut from solids' : ''} (${(performance.now() - t0) / 1000 < 1 ? Math.round(performance.now() - t0) + ' ms' : ((performance.now() - t0) / 1000).toFixed(1) + ' s'}).`);
+  }, 40);
+}
+function ungroupSel() {
+  const gs = objs.filter(o => sel.has(o.id) && o.kind === 'group'); if (!gs.length) return toast('Select a group to ungroup.', true);
+  pushUndo(); sel.clear();
+  for (const g of gs) {
+    const gm = localMatrix(g);
+    for (const k of g.children) {
+      const m = gm.clone().multiply(localMatrix(k)), p = new THREE.Vector3(), q = new THREE.Quaternion(), s = new THREE.Vector3(); m.decompose(p, q, s);
+      const eu = new THREE.Euler().setFromQuaternion(q);
+      const c = Object.assign(clone(k), { id: nextId++, pos: [p.x, p.y, p.z].map(v => Math.round(v * 1000) / 1000), rot: [eu.x, eu.y, eu.z].map(v => Math.round(v / D2R * 1000) / 1000) }); unlink(c, 'pos-', 'rot-');
+      objs.push(c); sel.add(c.id);
+    }
+  }
+  objs = objs.filter(o => !gs.includes(o)); refresh();
+}
+function dropSel() {
+  if (!sel.size) return; pushUndo();
+  for (const o of objs) if (sel.has(o.id)) { const b = new THREE.Box3().setFromObject(roots.get(o.id).userData.mesh); o.pos[2] = Math.round((o.pos[2] - b.min.z) * 1000) / 1000; unlink(o, 'pos-2'); }
+  refresh();
+}
+function toggleHole() { if (!sel.size) return; pushUndo(); for (const o of objs) if (sel.has(o.id)) o.hole = !o.hole; refresh(); }
+function newScene() { pushUndo(); objs = []; vars = []; sel.clear(); refresh(); toast('Scene cleared. Ctrl+Z brings it back.'); }
+
+/* =================== tool rail =================== */
+const ICONS = {
+  MOVE: '<path d="M11 3v16M3 11h16M11 3L8.8 5.2M11 3l2.2 2.2M11 19l-2.2-2.2M11 19l2.2-2.2M3 11l2.2-2.2M3 11l2.2 2.2M19 11l-2.2-2.2M19 11l-2.2 2.2"/>',
+  ROTATE: '<path d="M17 7.5A7 7 0 1 0 18 12"/><path d="M17.5 3v4.6h-4.6"/>',
+  box: '<path d="M11 3l7 3.5v9L11 19l-7-3.5v-9z"/><path d="M4 6.5L11 10l7-3.5M11 10v9"/>',
+  cyl: '<ellipse cx="11" cy="5.5" rx="6" ry="2.5"/><path d="M5 5.5v11c0 1.4 2.7 2.5 6 2.5s6-1.1 6-2.5v-11"/>',
+  sphere: '<circle cx="11" cy="11" r="7.5"/><ellipse cx="11" cy="11" rx="7.5" ry="2.8"/>',
+  cone: '<path d="M11 3L4.5 16.5M11 3l6.5 13.5"/><ellipse cx="11" cy="16.5" rx="6.5" ry="2.5"/>',
+  torus: '<ellipse cx="11" cy="11" rx="8" ry="4.8"/><ellipse cx="11" cy="10.4" rx="3.3" ry="1.6"/>',
+  prism: '<path d="M7 4h8l3 3v9l-3 3H7l-3-3V7z"/><path d="M7 4v15M15 4v15"/>',
+  extrude: '<path d="M4 15h9v4H4zM4 15l3-3h9l-3 3M16 12v4l-3 3"/><path d="M10 9V2.5M7.5 5L10 2.5 12.5 5"/>',
+  revolve: '<path d="M11 2v18" stroke-dasharray="2 2"/><path d="M11 5h3.5l2.5 3-1.5 4 1.5 5H11"/><path d="M7.5 7.5a3.5 1.5 0 0 0 0 3M7.5 14a3.5 1.5 0 0 0 0 3"/>',
+  PATTERN: '<rect x="3" y="3" width="5.5" height="5.5"/><rect x="13.5" y="3" width="5.5" height="5.5"/><rect x="3" y="13.5" width="5.5" height="5.5"/><rect x="13.5" y="13.5" width="5.5" height="5.5"/>',
+  SECTION: '<path d="M11 3l7 3.5v9L11 19l-7-3.5v-9z"/><path d="M1.5 12.5h19" stroke-dasharray="2.5 1.5"/>',
+  HOLE: '<rect x="3.5" y="3.5" width="15" height="15" rx="1" stroke-dasharray="2.5 2"/><circle cx="11" cy="11" r="3.5"/>',
+  MEASURE: '<path d="M2.5 15.5L15.5 2.5l4 4-13 13z"/><path d="M6 12l1.8 1.8M8.5 9.5l1.2 1.2M11 7l1.8 1.8M13.5 4.5l1.2 1.2"/>',
+  ALIGN: '<rect x="3" y="13" width="16" height="6"/><rect x="7" y="3" width="8" height="5"/><path d="M11 8.5v3.5M9.3 10.3L11 12l1.7-1.7"/>',
+  EDGE: '<path d="M4 19v-8a7 7 0 0 1 7-7h8"/><path d="M4 4h4M4 4v4" stroke-dasharray="1.5 1.5"/>',
+  DUP: '<rect x="3" y="7" width="10" height="11"/><path d="M8 7V3h10v11h-5"/>',
+  DROP: '<path d="M11 3v10M7.5 9.5L11 13l3.5-3.5M3 18h16"/>',
+  DEL: '<path d="M5 6.5h12M9 6.5V4h4v2.5M6.5 6.5l1 12h7l1-12"/>',
+};
+const RAIL = [['MOVE', 'Move gizmo', 'W'], ['ROTATE', 'Rotate gizmo', 'E'], 0, ['box', 'Box', ''], ['cyl', 'Cylinder', ''], ['sphere', 'Sphere', ''], ['cone', 'Cone', ''], ['torus', 'Torus', ''], ['prism', 'Hexagonal prism', ''], ['extrude', 'Extrude a 2D drawing', ''], ['revolve', 'Revolve a 2D profile', ''], 0,
+  ['HOLE', 'Toggle solid / hole', 'H'], ['EDGE', 'Fillet / chamfer edges', 'R'], ['DUP', 'Duplicate', '^D'], ['PATTERN', 'Pattern copies', 'P'], ['DROP', 'Drop to floor', 'D'], ['DEL', 'Delete', 'Del'], 0,
+  ['SECTION', 'Section view', 'S'], ['MEASURE', 'Measure', 'M'], ['ALIGN', 'Align face to face', 'A']];
+$('#tools').innerHTML = RAIL.map(t => t ? `<button class="tool" id="t-${t[0]}" data-t="${t[0]}" title="${t[1]}${t[2] ? ` (${t[2]})` : ''}" aria-label="${t[1]}"${['MOVE', 'ROTATE', 'SECTION', 'EDGE', 'MEASURE', 'ALIGN'].includes(t[0]) ? ' aria-pressed="false"' : ''}><svg viewBox="0 0 22 22">${ICONS[t[0]]}</svg><span class="k">${t[2]}</span></button>` : '<span class="tsep"></span>').join('');
+$('#tools').addEventListener('click', e => {
+  const b = e.target.closest('[data-t]'); if (!b) return; b.blur(); const t = b.dataset.t;
+  if (t === 'MOVE') setMode('translate'); else if (t === 'ROTATE') setMode('rotate');
+  else if (t === 'HOLE') toggleHole(); else if (t === 'EDGE') toggleEdgeMode(); else if (t === 'MEASURE') setTool('measure'); else if (t === 'ALIGN') setTool('align'); else if (t === 'DUP') dupSel(); else if (t === 'DROP') dropSel(); else if (t === 'DEL') delSel();
+  else if (t === 'extrude' || t === 'revolve') openExtrude(t); else if (t === 'PATTERN') openPattern(); else if (t === 'SECTION') toggleSection(); else addKind(t);
+});
+function setMode(m) { tc.setMode(m); syncMode(); }
+function syncMode() { $('#t-MOVE').setAttribute('aria-pressed', String(tc.getMode() === 'translate')); $('#t-ROTATE').setAttribute('aria-pressed', String(tc.getMode() === 'rotate')); $('#t-EDGE').setAttribute('aria-pressed', String(!!edgeMode));
+  $('#t-MEASURE').setAttribute('aria-pressed', String(tool === 'measure')); $('#t-ALIGN').setAttribute('aria-pressed', String(tool === 'align')); }
+
+/* =================== tree + properties =================== */
+const EYE = '<svg viewBox="0 0 20 20"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z"/><circle cx="10" cy="10" r="2.4"/></svg>';
+function renderTree() {
+  const t = $('#tree');
+  if (!objs.length) { t.innerHTML = '<p class="empty">The scene is empty. Pick a shape from the left rail, or extrude a 2D drawing.</p>'; }
+  else t.innerHTML = objs.map(o => {
+    const kids = o.kind === 'group' ? o.children.map(c => `<div class="row child"><span class="sw${c.hole ? ' hole' : ''}" style="background-color:${c.hole ? 'transparent' : esc(c.color)}"></span><span class="nm">${esc(c.name)}</span><span class="bd">${c.hole ? 'hole' : ''}</span><span></span></div>`).join('') : '';
+    return `<div class="row${sel.has(o.id) ? ' sel' : ''}" data-id="${o.id}" role="button" tabindex="0"><span class="sw${o.hole ? ' hole' : ''}" style="background-color:${o.hole ? 'transparent' : esc(o.color)}"></span><span class="nm">${esc(o.name)}</span><span class="bd">${o.kind === 'group' ? `${o.children.length} parts` : o.hole ? 'hole' : ''}</span><span class="eye${o.hidden ? ' off' : ''}" data-eye="${o.id}" title="${o.hidden ? 'Show' : 'Hide'}">${EYE}</span></div>${kids}`;
+  }).join('');
+  $('#bGroup').disabled = sel.size < 2;
+  $('#bUngroup').disabled = ![...sel].some(id => (byId(id) || {}).kind === 'group');
+}
+$('#tree').addEventListener('click', e => {
+  const eye = e.target.closest('[data-eye]');
+  if (eye) { const o = byId(+eye.dataset.eye); pushUndo(); o.hidden = !o.hidden; if (o.hidden) sel.delete(o.id); return refresh(); }
+  const r = e.target.closest('.row[data-id]'); if (!r) return;
+  const id = +r.dataset.id;
+  if (e.shiftKey || e.ctrlKey || e.metaKey) sel.has(id) ? sel.delete(id) : sel.add(id); else { sel.clear(); sel.add(id); }
+  refresh(false);
+});
+$('#tree').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('.row[data-id]')) e.target.click(); });
+$('#tree').addEventListener('dblclick', e => { if (e.target.closest('.row[data-id]')) fit(true); });
+
+const PARAM_FIELDS = {
+  box: [['w', 'Width (X)'], ['d', 'Depth (Y)'], ['h', 'Height (Z)']],
+  cyl: [['dia', 'Diameter'], ['h', 'Height'], ['seg', 'Segments', 1]],
+  sphere: [['dia', 'Diameter'], ['seg', 'Segments', 1]],
+  cone: [['base', 'Base Ø'], ['top', 'Top Ø'], ['h', 'Height'], ['seg', 'Segments', 1]],
+  torus: [['major', 'Ring Ø'], ['tube', 'Tube Ø'], ['seg', 'Segments', 1]],
+  prism: [['sides', 'Sides', 1], ['dia', 'Ø across corners'], ['h', 'Height']],
+  extrude: [['h', 'Height']],
+  revolve: [['angle', 'Angle (°)'], ['seg', 'Segments', 1]],
+  group: [],
+};
+function renderProps() {
+  const box = $('#props');
+  const items = [...sel].map(byId).filter(Boolean);
+  if (!items.length) { box.innerHTML = '<p class="empty">Nothing selected. Click a shape in the viewport or the list. Shift+click selects more than one.</p>'; return; }
+  if (items.length > 1) {
+    const mb = massBlock(items);
+    box.innerHTML = `<div class="prop"><span>Selected</span><output>${items.length} objects</output></div>
+      <label class="prop"><span>Color</span><input type="color" id="pColorAll" value="${items[0].color}"></label>
+      ${mb ? `<p class="sub">All selected solids</p>${mb}` : ''}
+      <p class="empty">Group them to combine. Any object set to Hole is cut out of the solids in the group.</p>`;
+    bindMass();
+    return;
+  }
+  const o = items[0], r = roots.get(o.id);
+  if (edgeMode && edgeMode.id === o.id) { box.innerHTML = edgePanel(o); return; }
+  const bb = r ? new THREE.Box3().setFromObject(r.userData.mesh) : null, sz = bb ? bb.getSize(new THREE.Vector3()) : null;
+  // a field linked to a named size shows its expression; hovering shows the value
+  const n = (id, v, extra = '') => { const ex = o.ex && o.ex[id]; return `<input id="${id}" inputmode="decimal" value="${ex ? esc(ex) : fmt(v)}"${ex ? ` class="ex" title="= ${fmt(v)}"` : ''} ${extra}>`; };
+  let h = `<label class="prop"><span>Name</span><input id="pName" value="${esc(o.name)}"></label>
+    <div class="prop"><span>Type</span><div class="seg" role="group" aria-label="Solid or hole"><button data-hole="0" aria-pressed="${!o.hole}">Solid</button><button data-hole="1" aria-pressed="${o.hole}">Hole</button></div></div>
+    <label class="prop"><span>Color</span><input type="color" id="pColor" value="${o.color}"${o.hole ? ' disabled' : ''}></label>`;
+  const pf = PARAM_FIELDS[o.kind];
+  if (pf.length) h += '<p class="sub">Dimensions (mm)</p>' + pf.map(([k, lab, int]) => `<label class="prop"><span>${lab}</span>${n('pp-' + k, o.params[k], int ? 'inputmode="numeric"' : '')}</label>`).join('');
+  if (o.kind === 'extrude' || o.kind === 'revolve') h += `<div class="prop"><span>Profile</span><output>${o.params.loops.length} outline${o.params.loops.length === 1 ? '' : 's'}, ${(nh => `${nh} hole${nh === 1 ? '' : 's'}`)(o.params.loops.reduce((s, l) => s + (l.holes || []).length, 0))}</output></div>`;
+  if (o.kind === 'group') h += `<div class="prop"><span>Parts</span><output>${o.children.filter(c => !c.hole).length} solid, ${o.children.filter(c => c.hole).length} hole</output></div>`;
+  if (o.kind !== 'group' && edgeList(o).length) { const c = treatedKeys(o).size; h += `<div class="prop"><span>Rounded edges</span><div class="eacts"><output>${c}</output><button class="btn" data-ea="enter">Fillet / chamfer…</button></div></div>`; }
+  h += `<p class="sub">Position (mm)</p><div class="trio">${o.pos.map((v, i) => n('pos-' + i, v, `aria-label="${'XYZ'[i]} position"`)).join('')}</div>
+    <p class="sub">Rotation (°)</p><div class="trio">${o.rot.map((v, i) => n('rot-' + i, v, `aria-label="Rotation about ${'XYZ'[i]}"`)).join('')}</div>`;
+  if (sz) h += `<p class="sub">Measure</p><div class="prop"><span>Size X × Y × Z</span><output>${fmt(sz.x)} × ${fmt(sz.y)} × ${fmt(sz.z)}</output></div>`;
+  h += massBlock([o]);
+  box.innerHTML = h;
+  bindMass();
+}
+// volume, mass and centre of gravity of the solids in `list` (holes are left out)
+function massBlock(list) {
+  const mp = massProps(list); if (!mp) return '';
+  return `<div class="prop"><span>Volume</span><output>${fmt(mp.vol / 1000)} cm³</output></div>
+    <label class="prop"><span>Mass in</span><select id="pMat"><option value="2.70">Aluminium</option><option value="7.85">Steel</option><option value="1.24">PLA</option><option value="1.04">ABS</option><option value="0.60">Pine wood</option></select></label>
+    <div class="prop"><span>Mass</span><output id="pMass" data-vol="${mp.vol}"></output></div>
+    <div class="prop"><span title="Centre of gravity, marked in the view">Centre of gravity</span><output>${fmt(mp.cog.x)}, ${fmt(mp.cog.y)}, ${fmt(mp.cog.z)}</output></div>`;
+}
+function bindMass() {
+  const mat = $('#pMat'); if (!mat) return;
+  try { mat.value = localStorage.getItem(KEY + '-mat') || '2.70'; } catch (_) {}
+  const upd = () => { const m = +$('#pMass').dataset.vol / 1000 * +mat.value; $('#pMass').textContent = m >= 1000 ? `${fmt(m / 1000)} kg` : `${fmt(m)} g`; };
+  upd(); mat.onchange = () => { try { localStorage.setItem(KEY + '-mat', mat.value); } catch (_) {} upd(); };
+}
+$('#props').addEventListener('change', e => {
+  const t = e.target, items = [...sel].map(byId).filter(Boolean); if (!items.length || t.id === 'pMat') return;
+  if (t.id === 'eR') {
+    try { const s = readSize(t.value); if (!(s.v > 0)) throw Error('the size must be greater than zero'); if (edgeMode) { edgeMode.r = s.v; edgeMode.rx = s.ex; } }
+    catch (err) { toast(`Can't use “${t.value.trim()}”: ${err.message}.`, true); }
+    return renderProps();
+  }
+  if (t.id === 'pColorAll') { pushUndo(); items.forEach(o => o.color = t.value); return refresh(); }
+  const o = items[0];
+  if (t.id === 'pName') { pushUndo(); o.name = t.value.trim() || o.name; return refresh(); }
+  if (t.id === 'pColor') { pushUndo(); o.color = t.value; return refresh(); }
+  if (!/^(pp|pos|rot)-/.test(t.id)) return;
+  let s; try { s = readSize(t.value); } catch (err) { toast(`Can't use “${t.value.trim()}”: ${err.message}.`, true); return renderProps(); }
+  pushUndo();
+  const bad = fieldSet(o, t.id, s.v); if (bad) { undoStack.pop(); toast(bad, true); return renderProps(); }
+  if (s.ex) (o.ex = o.ex || {})[t.id] = s.ex; else unlink(o, t.id);
+  refresh();
+});
+$('#props').addEventListener('click', e => {
+  const et = e.target.closest('[data-et]'); if (et && edgeMode) { edgeMode.t = et.dataset.et; return renderProps(); }
+  const ea = e.target.closest('[data-ea]'); if (!ea) return;
+  const a = ea.dataset.ea;
+  if (a === 'enter') return enterEdgeMode();
+  if (!edgeMode) return;
+  const r = $('#eR'); // take a typed size even before its change event
+  if (r) try { const s = readSize(r.value); if (s.v > 0) { edgeMode.r = s.v; edgeMode.rx = s.ex; } } catch (_) {}
+  if (a === 'apply' || a === 'sharp') applyEdges(a === 'sharp');
+  else if (a === 'all') { edgeList(byId(edgeMode.id)).forEach(x => edgeMode.picked.add(x.key)); updEdgeOverlay(); renderProps(); }
+  else if (a === 'clear') { edgeMode.picked.clear(); updEdgeOverlay(); renderProps(); }
+  else if (a === 'done') exitEdgeMode();
+});
+$('#props').addEventListener('click', e => { const b = e.target.closest('[data-hole]'); if (!b) return; const o = byId([...sel][0]); if (!o || o.hole === (b.dataset.hole === '1')) return; pushUndo(); o.hole = b.dataset.hole === '1'; refresh(); });
+$('#props').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
+
+function updInfo() {
+  const solids = objs.filter(o => !o.hole && !o.hidden).length;
+  $('#info').textContent = `${objs.length} object${objs.length === 1 ? '' : 's'} · ${solids} solid · ${sel.size} selected`;
+}
+let saveT = 0;
+function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, snapshot()); } catch (_) {} }, 300); }
+function refresh(record = true) { sync(); renderTree(); renderVars(); renderProps(); renderSim(); updInfo(); syncMode(); if (record) save(); }
+
+let toastT = 0;
+function toast(msg, err) { const t = $('#toast'); t.textContent = msg; t.className = 'toast' + (err ? ' err' : ''); t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 3200); }
+
+/* =================== status toggles =================== */
+function applySnap() { const on = snapOn(); tc.setTranslationSnap(on ? step() : null); tc.setRotationSnap(on ? 15 * D2R : null); }
+$('#tgSnap').onclick = e => { const b = e.currentTarget; b.setAttribute('aria-pressed', String(!snapOn())); b.blur(); applySnap(); };
+$('#snapStep').onchange = applySnap;
+$('#tgFaces').onclick = e => { const b = e.currentTarget; b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true')); b.blur(); };
+$('#tgOrtho').onclick = e => { e.currentTarget.blur(); setOrtho(cam !== ortho); };
+$('#tgEdges').onclick = e => { display.edges = !display.edges; e.currentTarget.setAttribute('aria-pressed', String(display.edges)); e.currentTarget.blur(); sync(); };
+$('#tgWire').onclick = e => { display.wire = !display.wire; e.currentTarget.setAttribute('aria-pressed', String(display.wire)); e.currentTarget.blur(); sync(); };
+$('#bNew').onclick = e => { e.currentTarget.blur(); newScene(); };
+$('#bUndo').onclick = e => { e.currentTarget.blur(); undo(); };
+$('#bRedo').onclick = e => { e.currentTarget.blur(); redo(); };
+$('#bGroup').onclick = e => { e.currentTarget.blur(); groupSel(); };
+$('#bUngroup').onclick = e => { e.currentTarget.blur(); ungroupSel(); };
+$('#bPanel').onclick = () => $('#side').classList.toggle('open');
+$('#bExport').onclick = () => openExport();
+
+/* =================== keyboard =================== */
+document.addEventListener('keydown', e => {
+  const open = [...document.querySelectorAll('.modal')].find(m => !m.hidden);
+  if (open) { if (e.key === 'Escape') open.hidden = true; return; }
+  const ae = document.activeElement;
+  if (ae && ['INPUT', 'SELECT', 'TEXTAREA'].includes(ae.tagName)) { if (e.key === 'Escape') ae.blur(); return; }
+  const k = e.key.toLowerCase(), mod = e.ctrlKey || e.metaKey;
+  if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); return undo(); }
+  if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); return redo(); }
+  if (mod && k === 'd') { e.preventDefault(); return dupSel(); }
+  if (mod && k === 'g') { e.preventDefault(); return e.shiftKey ? ungroupSel() : groupSel(); }
+  if (mod && k === 'a') { e.preventDefault(); objs.forEach(o => !o.hidden && sel.add(o.id)); return refresh(false); }
+  if (mod) return;
+  if (k === 'delete' || k === 'backspace') { e.preventDefault(); return delSel(); }
+  if (k === 'escape') { if (simPick) return endSimPick(); if (tool) return setTool(tool); if (edgeMode) return exitEdgeMode(); sel.clear(); return refresh(false); }
+  if (k === 'm') return setTool('measure');
+  if (k === 'a') return setTool('align');
+  if (k === 'r') return toggleEdgeMode();
+  if (k === 'enter' && edgeMode && edgeMode.picked.size) return applyEdges(false);
+  if (k === 'w') return setMode('translate');
+  if (k === 'e') return setMode('rotate');
+  if (k === 'h') return toggleHole();
+  if (k === 'd') return dropSel();
+  if (swMouse() && k.startsWith('arrow')) { e.preventDefault(); const a = (e.shiftKey ? 90 : 15) * D2R; return spinView(k === 'arrowleft' || k === 'arrowright' ? 'up' : 'right', k === 'arrowleft' || k === 'arrowup' ? -a : a); }
+  if (swMouse() && k === ' ') { e.preventDefault(); return showMenu(lastPtr.x, lastPtr.y); }
+  if (k === 'f') return fit(sel.size > 0);
+  if (k === '7') return setView('top');
+  if (k === '1') return setView('front');
+  if (k === '3') return setView('right');
+  if (k === '0') return setView('iso');
+  if (k === '5') return setOrtho(cam !== ortho);
+  if (k === 'p') return openPattern();
+  if (k === 's') return toggleSection();
+});
+
+/* =================== export =================== */
+let expFmt = 'stl';
+const HINTS = {
+  stl: 'ASCII STL in millimetres, ready for 3D-printer slicers such as Cura, PrusaSlicer and Bambu Studio. Copy it and save as a .stl file. Hole objects that are not in a group are left out.',
+  obj: 'Wavefront OBJ in millimetres, one object per shape. Opens in Blender, Fusion and most 3D tools. Save as a .obj file.',
+  json: 'Planform 3D scene with every shape, group and setting. Save as a .json file and reopen it with Open… to keep editing.',
+  views: 'Front, top and right views of the visible solids, laid out third-angle at 1:1, as a Planform 2D drawing. Save it as a .json file and open it in Planform 2D to add dimensions. Every edge is drawn, including edges that would normally be hidden.',
+};
+// feature edges plus silhouettes of curved faces, as world-space segments, for one view direction
+function viewEdges(root, dir) {
+  const mesh = root.userData.mesh, M = mesh.matrixWorld, out = [], v = new THREE.Vector3(), w = new THREE.Vector3();
+  const E = root.userData.edges.geometry.attributes.position.array;
+  for (let i = 0; i < E.length; i += 6) { v.fromArray(E, i).applyMatrix4(M); w.fromArray(E, i + 3).applyMatrix4(M); out.push([v.toArray(), w.toArray()]); }
+  const g = mesh.geometry, P = (g.index ? g.toNonIndexed() : g).attributes.position.array, Wp = new Float64Array(P.length);
+  for (let i = 0; i < P.length; i += 3) { v.fromArray(P, i).applyMatrix4(M); Wp[i] = v.x; Wp[i + 1] = v.y; Wp[i + 2] = v.z; }
+  const key = i => `${Math.round(Wp[i] * 100)},${Math.round(Wp[i + 1] * 100)},${Math.round(Wp[i + 2] * 100)}`, map = new Map();
+  for (let t = 0; t < Wp.length; t += 9) {
+    const ux = Wp[t + 3] - Wp[t], uy = Wp[t + 4] - Wp[t + 1], uz = Wp[t + 5] - Wp[t + 2], vx = Wp[t + 6] - Wp[t], vy = Wp[t + 7] - Wp[t + 1], vz = Wp[t + 8] - Wp[t + 2];
+    const facing = (uy * vz - uz * vy) * dir[0] + (uz * vx - ux * vz) * dir[1] + (ux * vy - uy * vx) * dir[2];
+    for (const [i, j] of [[t, t + 3], [t + 3, t + 6], [t + 6, t]]) {
+      const ki = key(i), kj = key(j), k = ki < kj ? ki + '|' + kj : kj + '|' + ki;
+      let en = map.get(k); if (!en) map.set(k, en = { i, j, f: [] }); en.f.push(facing);
+    }
+  }
+  for (const en of map.values()) if (en.f.length === 2 && en.f[0] * en.f[1] < 0) out.push([[Wp[en.i], Wp[en.i + 1], Wp[en.i + 2]], [Wp[en.j], Wp[en.j + 1], Wp[en.j + 2]]]);
+  return out;
+}
+function viewsDoc() {
+  scene.updateMatrixWorld(true);
+  const items = objs.filter(o => !o.hidden && !o.hole).map(o => roots.get(o.id)).filter(Boolean);
+  if (!items.length) return null;
+  const box = new THREE.Box3(); items.forEach(r => box.expandByObject(r.userData.mesh));
+  const s = box.getSize(new THREE.Vector3()), gap = Math.max(25, Math.round(s.length() * 0.15)), mn = box.min;
+  const views = [
+    { name: 'FRONT', dir: [0, -1, 0], map: ([x, y, z]) => [x - mn.x, z - mn.z], label: [0, -10] },
+    { name: 'TOP', dir: [0, 0, 1], map: ([x, y, z]) => [x - mn.x, y - mn.y + s.z + gap], label: [0, s.z + gap - 10] },
+    { name: 'RIGHT', dir: [1, 0, 0], map: ([x, y, z]) => [y - mn.y + s.x + gap, z - mn.z], label: [s.x + gap, -10] },
+  ];
+  const ents = []; let id = 1; const r2 = v => Math.round(v * 100) / 100;
+  for (const vw of views) {
+    // group projected segments by the infinite line they lie on, then merge overlapping pieces
+    const lines = new Map();
+    for (const r of items) for (const [a, b] of viewEdges(r, vw.dir)) {
+      const A = vw.map(a), B = vw.map(b), L = Math.hypot(B[0] - A[0], B[1] - A[1]); if (L < 0.02) continue;
+      let th = Math.atan2(B[1] - A[1], B[0] - A[0]); if (th < 0) th += Math.PI; if (th >= Math.PI - 1e-6) th -= Math.PI;
+      const c = Math.cos(th), s = Math.sin(th), off = -s * A[0] + c * A[1];
+      const k = `${Math.round(th * 2000)}|${Math.round(off * 50)}`;
+      let t0 = c * A[0] + s * A[1], t1 = c * B[0] + s * B[1]; if (t0 > t1) [t0, t1] = [t1, t0];
+      let e = lines.get(k); if (!e) lines.set(k, e = { c, s, off, iv: [] }); e.iv.push([t0, t1]);
+    }
+    for (const { c, s, off, iv } of lines.values()) {
+      iv.sort((m, n) => m[0] - n[0]);
+      const merged = []; for (const [a, b] of iv) { const last = merged[merged.length - 1]; if (last && a <= last[1] + 0.02) last[1] = Math.max(last[1], b); else merged.push([a, b]); }
+      for (const [a, b] of merged) ents.push({ id: id++, t: 'line', layer: 2, a: { x: r2(c * a - s * off), y: r2(s * a + c * off) }, b: { x: r2(c * b - s * off), y: r2(s * b + c * off) } });
+    }
+    ents.push({ id: id++, t: 'text', layer: 6, p: { x: vw.label[0], y: vw.label[1] }, s: `${vw.name} VIEW`, h: 4, rot: 0 });
+  }
+  const layers = [{ id: 1, name: '0', color: 'ink', vis: true, lt: 'cont' }, { id: 2, name: 'Outline', color: 'ink', vis: true, lt: 'cont' }, { id: 3, name: 'Center', color: '#d64545', vis: true, lt: 'center' },
+    { id: 4, name: 'Dimensions', color: '#16a08e', vis: true, lt: 'cont' }, { id: 5, name: 'Hidden', color: '#c4880f', vis: true, lt: 'hidden' }, { id: 6, name: 'Notes', color: 'ink', vis: true, lt: 'cont' }];
+  return { app: 'planform-cad', version: 1, units: 'mm', layers, ents };
+}
+function exportMeshes() { return objs.filter(o => !o.hidden && !o.hole).map(o => { const r = roots.get(o.id); r.updateMatrixWorld(true); return { o, g: r.userData.mesh.geometry.clone().applyMatrix4(r.userData.mesh.matrixWorld) }; }); }
+const nf = v => (Math.round(v * 1e4) / 1e4).toString();
+function toSTL() {
+  const out = ['solid planform']; const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+  for (const { g } of exportMeshes()) {
+    const P = (g.index ? g.toNonIndexed() : g).attributes.position.array;
+    for (let i = 0; i < P.length; i += 9) {
+      a.fromArray(P, i); b.fromArray(P, i + 3); c.fromArray(P, i + 6);
+      n.subVectors(c, b).cross(a.clone().sub(b)).normalize();
+      if (!isFinite(n.x)) continue;
+      out.push(` facet normal ${nf(n.x)} ${nf(n.y)} ${nf(n.z)}`, '  outer loop', `   vertex ${nf(a.x)} ${nf(a.y)} ${nf(a.z)}`, `   vertex ${nf(b.x)} ${nf(b.y)} ${nf(b.z)}`, `   vertex ${nf(c.x)} ${nf(c.y)} ${nf(c.z)}`, '  endloop', ' endfacet');
+    }
+  }
+  out.push('endsolid planform'); return out.join('\n');
+}
+function toOBJ() {
+  const out = ['# Planform 3D export, units: mm']; let base = 1;
+  for (const { o, g } of exportMeshes()) {
+    const P = (g.index ? g.toNonIndexed() : g).attributes.position.array;
+    out.push(`o ${o.name.replace(/\s+/g, '_')}`);
+    for (let i = 0; i < P.length; i += 3) out.push(`v ${nf(P[i])} ${nf(P[i + 1])} ${nf(P[i + 2])}`);
+    for (let i = 0; i < P.length / 3; i += 3) out.push(`f ${base + i} ${base + i + 1} ${base + i + 2}`);
+    base += P.length / 3;
+  }
+  return out.join('\n');
+}
+function openExport() { $('#mExport').hidden = false; setExp(expFmt); $('#eCopy').focus(); }
+function setExp(f) {
+  expFmt = f; document.querySelectorAll('#mExport .tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.fmt === f)));
+  $('#eHint').textContent = HINTS[f]; $('#eMsg').textContent = '';
+  let txt;
+  if (f === 'views') { const d = viewsDoc(); txt = d ? JSON.stringify(d) : ''; if (!d) { $('#eText').value = ''; $('#eMsg').textContent = 'There are no visible solids to draw.'; return; } }
+  else txt = f === 'stl' ? toSTL() : f === 'obj' ? toOBJ() : JSON.stringify({ app: 'planform-3d', version: 1, units: 'mm', vars, objs }, null, 1);
+  $('#eText').value = txt; $('#eMsg').textContent = `${(txt.length / 1024).toFixed(0)} KB`;
+}
+const LOCAL = location.protocol === 'file:';
+$('#eDown').hidden = !LOCAL;
+$('#eDown').onclick = () => {
+  const name = { stl: 'model.stl', obj: 'model.obj', json: 'model.json', views: 'views-2d.json' }[expFmt];
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([$('#eText').value], { type: expFmt === 'stl' ? 'model/stl' : 'application/octet-stream' })); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  $('#eMsg').textContent = `Saved ${name} to your Downloads folder.`;
+};
+
+/* =================== pattern =================== */
+let patMode = 'lin';
+const PAT_HINTS = { lin: 'Repeats the selection in a straight line. The count includes the original.', circ: 'Repeats the selection around a vertical axis through the center point, like holes on a bolt circle. The count includes the original.' };
+function setPat(m) {
+  patMode = m;
+  document.querySelectorAll('#mPattern [data-pt]').forEach(b => b.setAttribute('aria-selected', String(b.dataset.pt === m)));
+  document.querySelectorAll('#mPattern [data-for]').forEach(el => el.hidden = el.dataset.for !== m);
+  $('#patHint').textContent = PAT_HINTS[m]; $('#patMsg').textContent = '';
+}
+document.querySelectorAll('#mPattern [data-pt]').forEach(b => b.onclick = () => setPat(b.dataset.pt));
+function openPattern() {
+  if (!sel.size) return toast('Select the objects to repeat first.', true);
+  setPat(patMode); $('#mPattern').hidden = false; $('#patN').focus();
+}
+$('#patGo').onclick = () => {
+  const n = Math.round(+$('#patN').value), msg = $('#patMsg'), num = id => parseFloat($(id).value);
+  if (!(n >= 2 && n <= 200)) { msg.textContent = 'Count must be between 2 and 200.'; msg.className = 'msg err'; return; }
+  const items = objs.filter(o => sel.has(o.id)); pushUndo(); const made = [];
+  for (let k = 1; k < n; k++) for (const o of items) {
+    const c = clone(o); c.id = nextId++; c.name = `${o.name} ${k + 1}`;
+    if (patMode === 'lin') { const d = [num('#patDX') || 0, num('#patDY') || 0, num('#patDZ') || 0]; c.pos = o.pos.map((v, i) => Math.round((v + d[i] * k) * 1000) / 1000); }
+    else {
+      const A = Math.min(360, Math.abs(num('#patA') || 360)) * Math.sign(num('#patA') || 1), step = (Math.abs(A) >= 360 ? A / n : A / (n - 1)) * D2R * k;
+      const cx = num('#patCX') || 0, cy = num('#patCY') || 0, x = o.pos[0] - cx, y = o.pos[1] - cy;
+      c.pos = [cx + x * Math.cos(step) - y * Math.sin(step), cy + x * Math.sin(step) + y * Math.cos(step), o.pos[2]].map(v => Math.round(v * 1000) / 1000);
+      const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), step).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...o.rot.map(r => r * D2R))));
+      const eu = new THREE.Euler().setFromQuaternion(q); c.rot = [eu.x, eu.y, eu.z].map(r => Math.round(r / D2R * 1000) / 1000);
+    }
+    unlink(c, 'pos-', 'rot-'); made.push(c);
+  }
+  objs.push(...made); made.forEach(c => sel.add(c.id));
+  $('#mPattern').hidden = true; refresh();
+  toast(`Made ${made.length} cop${made.length === 1 ? 'y' : 'ies'}. Group them with a solid to cut a hole pattern.`);
+};
+
+/* =================== section view =================== */
+const section = { on: false, axis: 'z', flip: false, pos: 0 };
+const clipPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 0);
+renderer.localClippingEnabled = true;
+function sectionRange() {
+  scene.updateMatrixWorld(true);
+  const box = new THREE.Box3(); for (const o of objs) { const r = roots.get(o.id); if (r && r.visible) box.expandByObject(r.userData.mesh); }
+  if (box.isEmpty()) return [0, 100];
+  const i = { x: 'x', y: 'y', z: 'z' }[section.axis]; return [box.min[i], box.max[i]];
+}
+function updSection() {
+  const ax = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] }[section.axis], s = section.flip ? 1 : -1;
+  clipPlane.normal.set(ax[0] * s, ax[1] * s, ax[2] * s); clipPlane.constant = -s * section.pos;
+  $('#secVal').textContent = `${section.axis.toUpperCase()} ${fmt(section.pos)}`;
+  sync();
+}
+function resetSlider() {
+  const [a, b] = sectionRange(), sl = $('#secPos');
+  sl.min = a; sl.max = b; sl.step = Math.max(0.01, (b - a) / 500); section.pos = (a + b) / 2; sl.value = section.pos; updSection();
+}
+function toggleSection() {
+  section.on = !section.on; $('#secbar').hidden = !section.on; $('#t-SECTION').setAttribute('aria-pressed', String(section.on));
+  if (section.on) resetSlider(); else sync();
+}
+$('#secAxis').onchange = e => { section.axis = e.target.value; resetSlider(); };
+$('#secPos').oninput = e => { section.pos = +e.target.value; updSection(); };
+$('#secFlip').onclick = () => { section.flip = !section.flip; updSection(); };
+document.querySelectorAll('#mExport .tabs button').forEach(b => b.onclick = () => setExp(b.dataset.fmt));
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => b.closest('.modal').hidden = true);
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.hidden = true; }));
+$('#eCopy').onclick = () => {
+  const t = $('#eText'), msg = $('#eMsg'), fb = () => { t.focus(); t.select(); msg.textContent = 'Text selected. Press Ctrl+C to copy.'; };
+  try { navigator.clipboard.writeText(t.value).then(() => msg.textContent = `Copied ${(t.value.length / 1024).toFixed(0)} KB.`, fb); } catch (_) { fb(); }
+};
+
+/* =================== simulate: 3D stress, solved by planform_server.py =================== */
+// Picks are kept in the part's own frame, so they follow it when it moves. Each is the clicked
+// point and face normal; study3d.py matches it to the exact CAD face when the part is rebuilt.
+const SIM_KEY = KEY + '-sim', SERVER = location.port === '8765' ? '' : 'http://127.0.0.1:8765';
+const SIM_MATS = { steel: 'Structural steel S275', aluminium: 'Aluminium 6061-T6', titanium: 'Titanium Ti-6Al-4V', abs: 'ABS plastic' };
+const f3 = v => String(Math.abs(v) >= 100 ? Math.round(v) : +Number(v).toPrecision(3));
+let sim = (() => { try { const s = JSON.parse(localStorage.getItem(SIM_KEY)); if (s && Array.isArray(s.fixed) && Array.isArray(s.loads)) return s; } catch (_) {} return null; })()
+  || { partId: null, mat: 'steel', h: null, tangent: true, fixed: [], loads: [{ faces: [], f: [0, 0, -1000] }] };
+let simPick = null, simRes = null, simMsg = null, simBusy = false;
+const simOverlay = new THREE.Group();
+function saveSim() { try { localStorage.setItem(SIM_KEY, JSON.stringify(sim)); } catch (_) {} }
+function simPart() { const o = sim.partId != null ? byId(sim.partId) : null; return o && !o.hidden && !o.hole ? o : null; }
+function simChanged() { simRes = null; simMsg = null; saveSim(); updSimOverlay(); renderSim(); }
+
+// triangles of a part's display mesh, with normals and which triangles share each corner
+const triCache = new WeakMap();
+function triData(g) {
+  let d = triCache.get(g); if (d) return d;
+  const P = (g.index ? g.toNonIndexed() : g).attributes.position.array, n = P.length / 9;
+  const N = new Float32Array(n * 3), vk = new Int32Array(n * 3), ids = new Map(), vt = [];
+  for (let t = 0; t < n; t++) {
+    const i = t * 9, ux = P[i + 3] - P[i], uy = P[i + 4] - P[i + 1], uz = P[i + 5] - P[i + 2], vx = P[i + 6] - P[i], vy = P[i + 7] - P[i + 1], vz = P[i + 8] - P[i + 2];
+    const x = uy * vz - uz * vy, y = uz * vx - ux * vz, z = ux * vy - uy * vx, l = Math.hypot(x, y, z) || 1;
+    N[t * 3] = x / l; N[t * 3 + 1] = y / l; N[t * 3 + 2] = z / l;
+    for (let k = 0; k < 3; k++) {
+      const j = i + k * 3, key = `${Math.round(P[j] * 1e3)},${Math.round(P[j + 1] * 1e3)},${Math.round(P[j + 2] * 1e3)}`;
+      let id = ids.get(key); if (id === undefined) { id = vt.length; ids.set(key, id); vt.push([]); }
+      vk[t * 3 + k] = id; vt[id].push(t);
+    }
+  }
+  if (!g.boundingBox) g.computeBoundingBox();
+  d = { P, N, n, vk, vt, diag: g.boundingBox.getSize(new THREE.Vector3()).length() };
+  triCache.set(g, d); return d;
+}
+// the face a pick stands for: triangles reached from the seed across smooth (tangent) or flat joins
+function region(d, seed, tangent) {
+  const cos = Math.cos((tangent ? 20 : 1) * D2R), N = d.N, out = new Set([seed]), todo = [seed];
+  while (todo.length) {
+    const t = todo.pop();
+    for (let k = 0; k < 3; k++) for (const u of d.vt[d.vk[t * 3 + k]]) {
+      if (!out.has(u) && N[t * 3] * N[u * 3] + N[t * 3 + 1] * N[u * 3 + 1] + N[t * 3 + 2] * N[u * 3 + 2] > cos) { out.add(u); todo.push(u); }
+    }
+  }
+  return out;
+}
+// the triangle under a stored pick, or -1 if the part has changed and nothing is there now
+function seedTri(d, pk) {
+  const p = new THREE.Vector3(...pk.p), tri = new THREE.Triangle(), q = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+  let best = -1, bd = Math.max(0.05, 0.002 * d.diag);
+  for (let t = 0; t < d.n; t++) {
+    if (d.N[t * 3] * pk.n[0] + d.N[t * 3 + 1] * pk.n[1] + d.N[t * 3 + 2] * pk.n[2] < 0.7) continue;
+    tri.set(a.fromArray(d.P, t * 9), b.fromArray(d.P, t * 9 + 3), c.fromArray(d.P, t * 9 + 6)).closestPointToPoint(p, q);
+    const dist = q.distanceTo(p); if (dist < bd) { bd = dist; best = t; }
+  }
+  return best;
+}
+function pickRegion(d, pk) { const s = seedTri(d, pk); return s < 0 ? new Set() : region(d, s, pk.tangent !== false); }
+
+function clearSimOverlay() {
+  if (simOverlay.parent) simOverlay.parent.remove(simOverlay);
+  simOverlay.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); });
+  simOverlay.clear();
+}
+function updSimOverlay() {
+  clearSimOverlay();
+  const o = simPart(), r = o && roots.get(o.id);
+  if (!r || !(sim.fixed.length || sim.loads.some(L => L.faces.length))) return requestRender();
+  const d = triData(r.userData.mesh.geometry), inv = r.quaternion.clone().invert();
+  const sets = [[sim.fixed, T.fix, null, simPick && simPick.kind === 'fix'], ...sim.loads.map((L, k) => [L.faces, T.load, L, simPick && simPick.kind === 'load' && simPick.k === k])];
+  for (const [picks, col, load, active] of sets) {
+    const tris = new Set(); for (const pk of picks) for (const t of pickRegion(d, pk)) tris.add(t);
+    if (!tris.size) continue;
+    const pos = new Float32Array(tris.size * 9); let i = 0, area = 0;
+    const cen = new THREE.Vector3(), a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    for (const t of tris) {
+      for (let k = 0; k < 9; k++) pos[i++] = d.P[t * 9 + k];
+      a.fromArray(d.P, t * 9); b.fromArray(d.P, t * 9 + 3); c.fromArray(d.P, t * 9 + 6);
+      const w = b.clone().sub(a).cross(c.clone().sub(a)).length(); area += w; cen.addScaledVector(a.add(b).add(c), w / 3);
+    }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: active ? 0.8 : 0.55, side: THREE.DoubleSide, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
+    m.renderOrder = 5; m.raycast = () => {}; simOverlay.add(m);
+    const f = load && new THREE.Vector3(...load.f);
+    if (f && f.lengthSq() > 0 && area > 0) {
+      cen.divideScalar(area); const dir = f.normalize().applyQuaternion(inv), len = Math.max(8, 0.22 * d.diag);
+      const arrow = new THREE.ArrowHelper(dir, cen.clone().addScaledVector(dir, -len), len, new THREE.Color(col).getHex(), 0.25 * len, 0.12 * len);
+      arrow.traverse(c => { if (c.material) { c.material.depthTest = false; c.renderOrder = 6; } c.raycast = () => {}; });
+      simOverlay.add(arrow);
+    }
+  }
+  r.add(simOverlay); requestRender();
+}
+
+function useSelected() {
+  const o = sel.size === 1 ? byId([...sel][0]) : null;
+  if (!o) { toast('Select the part to simulate first.', true); return false; }
+  if (o.hole) { toast('That part is a hole. Pick a solid part.', true); return false; }
+  if (o.id !== sim.partId) { sim.partId = o.id; sim.fixed = []; sim.loads.forEach(L => L.faces = []); }
+  simChanged(); return true;
+}
+function startSimPick(kind, k) {
+  if (simPick && simPick.kind === kind && (kind === 'fix' || simPick.k === k)) return endSimPick();
+  if (!simPart() && !useSelected()) return;
+  if (tool) leaveTool();
+  if (edgeMode) { edgeMode = null; clearEdgeOverlay(); }
+  simPick = kind === 'fix' ? { kind } : { kind, k }; canvas.style.cursor = 'crosshair';
+  sync(); renderProps(); renderSim(); syncMode();
+  toast(`Click faces of ${simPart().name} to ${kind === 'fix' ? 'hold them fixed' : 'carry the load'}. Click a picked face again to drop it. Esc when done.`);
+}
+function endSimPick() { simPick = null; canvas.style.cursor = ''; sync(); renderSim(); }
+function simClick(e) {
+  setRay(e);
+  const hit = ray.intersectObjects([...roots.values()].filter(r => r.visible).map(r => r.userData.mesh), false)[0];
+  if (!hit) return;
+  const o = simPart();
+  if (!o || hit.object.userData.id !== o.id) return toast(`Pick faces on ${o ? o.name : 'the part'}. To simulate another part, select it and press Use selected.`, true);
+  const d = triData(hit.object.geometry), t = hit.faceIndex;
+  const cur = simPick.kind === 'fix' ? sim.fixed : sim.loads[simPick.k].faces;
+  for (const list of [sim.fixed, ...sim.loads.map(L => L.faces)]) for (let i = 0; i < list.length; i++) {
+    if (!pickRegion(d, list[i]).has(t)) continue;
+    if (list !== cur) return toast(list === sim.fixed ? 'That face is already fixed.' : 'That face already carries a load.', true);
+    list.splice(i, 1); return simChanged();
+  }
+  const p = hit.point.clone().applyMatrix4(hit.object.matrixWorld.clone().invert()), n = hit.face.normal;
+  const r4 = v => Math.round(v * 1e4) / 1e4;
+  cur.push({ p: p.toArray().map(r4), n: n.toArray().map(r4), tangent: sim.tangent });
+  simChanged();
+}
+
+async function runSim() {
+  if (simBusy) return;
+  if (simPick) endSimPick();
+  const err = t => { simMsg = { t, err: true }; renderSim(); };
+  const o = simPart(), r = o && roots.get(o.id);
+  if (!o) return err('Select the part to simulate and press Use selected.');
+  if (!sim.fixed.length) return err('Pick at least one fixed face.');
+  const loads = sim.loads.filter(L => L.faces.length && L.f.some(v => v));
+  if (!loads.length) return err('Give a load a force and pick the face(s) it pushes on.');
+  r.updateMatrixWorld(true);
+  const m = r.userData.mesh.matrixWorld;
+  const W = pk => ({ p: new THREE.Vector3(...pk.p).applyMatrix4(m).toArray(), n: new THREE.Vector3(...pk.n).transformDirection(m).toArray(), tangent: pk.tangent !== false });
+  const study = { app: 'planform-study-3d', version: 1, units: 'mm', name: o.name, material: sim.mat, mouse, size3d: sim.h || undefined,
+    part: clone(o), fixed: sim.fixed.map(W), loads: loads.map(L => ({ faces: L.faces.map(W), f: L.f })) };
+  simBusy = true; simMsg = { t: 'Looking for the Planform server…' }; renderSim();
+  let up = false;
+  try { const q = await fetch(SERVER + '/api/ping', { cache: 'no-store', signal: AbortSignal.timeout(1500) }); up = q.ok; } catch (_) {}
+  if (!up) {
+    simBusy = false;
+    if (LOCAL) {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(study)], { type: 'application/json' })); a.download = 'part.study.json';
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    const website = !LOCAL && !/^(127\.0\.0\.1|localhost)$/.test(location.hostname);
+    if (website) simMsg = { err: true, html: 'Simulating 3D parts needs the Planform desktop app, which includes the full solver. On the website, draw the outline in Planform 2D and use <b>Extrude &amp; simulate 3D</b> there; it runs in your browser.' };
+    else simMsg = { err: true, html: `The Planform server isn't running. In the Planform CAD folder run <code>python planform_server.py</code>, open <code>http://127.0.0.1:8765/planform-3d.html</code>, then press Solve again.${LOCAL ? ' Or run the saved study directly: <code>python study.py part.study.json</code> (it is in your Downloads folder).' : ''}` };
+    return renderSim();
+  }
+  simMsg = { t: `Rebuilding ${o.name} as an exact solid, meshing with 10-node tets and solving. This takes 10 to 60 seconds. The result opens in its own window.` }; renderSim();
+  try {
+    const q = await fetch(SERVER + '/api/simulate', { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(study) });
+    const s = await q.json();
+    if (!s.ok) throw new Error(s.error || 'The 3D solve failed.');
+    simRes = s; simMsg = null;
+  } catch (e) { simMsg = { t: e.message, err: true }; }
+  simBusy = false; renderSim();
+}
+
+function renderSim() {
+  const box = $('#sim'); if (!box) return;
+  const o = simPart(), one = sel.size === 1 ? byId([...sel][0]) : null;
+  const pickOn = (kind, k) => !!simPick && simPick.kind === kind && (kind === 'fix' || simPick.k === k);
+  const n = a => `${a.length} pick${a.length === 1 ? '' : 's'}`;
+  let h = `<div class="props">
+    <div class="prop"><span>Part</span><div class="eacts"><output>${o ? esc(o.name) : 'none'}</output>${one && one !== o && !one.hole ? '<button class="btn" data-sa="use">Use selected</button>' : ''}</div></div>
+    <label class="prop"><span>Material</span><select data-sv="mat">${Object.entries(SIM_MATS).map(([k, v]) => `<option value="${k}"${k === sim.mat ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+    <label class="prop"><span>Mesh size (mm)</span><input data-sv="h" inputmode="decimal" placeholder="auto" value="${sim.h ? fmt(sim.h) : ''}"></label></div>
+    <div style="margin-top:8px"><div class="srow"><span class="sdot fix"></span><b>Fixed</b><span class="scount">${n(sim.fixed)}</span><button data-sa="pick-fix" aria-pressed="${pickOn('fix')}">${pickOn('fix') ? 'Done' : 'Pick'}</button><span></span></div>`;
+  sim.loads.forEach((L, k) => {
+    h += `<div class="srow"><span class="sdot load"></span><b>Load ${k + 1}</b><span class="scount">${n(L.faces)}</span><button data-sa="pick-load" data-k="${k}" aria-pressed="${pickOn('load', k)}">${pickOn('load', k) ? 'Done' : 'Pick'}</button>${sim.loads.length > 1 ? `<button data-sa="del-load" data-k="${k}" aria-label="Remove load ${k + 1}" title="Remove">×</button>` : '<span></span>'}</div>
+      <div class="sforce">${['x', 'y', 'z'].map((c, i) => `<label>F${c} <input data-sf="${i}" data-k="${k}" inputmode="decimal" aria-label="Load ${k + 1} force ${c.toUpperCase()}, N" value="${fmt(L.f[i])}"></label>`).join('')}<span>N</span></div>`;
+  });
+  h += `<button class="slink" data-sa="add-load">+ Add load</button></div>
+    <div class="schk"><label title="A pick also takes the faces that meet it smoothly, such as every facet of a round hole"><input type="checkbox" data-sv="tangent"${sim.tangent ? ' checked' : ''}> Tangent faces</label></div>
+    <div class="sbtns"><button class="btn primary" data-sa="run"${simBusy ? ' disabled' : ''} title="Rebuild the part exactly and solve with 10-node tets (needs planform_server.py)">Solve 3D</button></div>`;
+  const s = simRes;
+  if (s) {
+    const fos = v => v == null ? '<output>none</output>' : `<output class="${v >= 1.5 ? 'good' : 'bad'}">${v.toFixed(2)}</output>`;
+    h += `<div class="sout"><h3>3D · ${esc(s.part || '')} · ${esc(s.material)}</h3>
+      <div class="prop"><span>Max von Mises</span><output>${f3(s.vm_max)} MPa</output></div>
+      <div class="prop"><span>Max displacement</span><output>${f3(s.umax)} mm</output></div>
+      <div class="prop"><span>Factor of safety</span>${fos(s.fos)}</div>
+      <div class="prop"><span>Reaction</span><output>${s.reaction.map(fmt).join(', ')} N</output></div>
+      <div class="prop"><span>Mesh</span><output title="mesh ${s.mesh_s} s, solve ${s.solve_s} s">${s.tets.toLocaleString()} tets · ${fmt(s.mesh_s + s.solve_s)} s</output></div></div>`;
+  }
+  if (simMsg) h += `<p class="smsg${simMsg.err ? ' err' : ''}">${simMsg.html || esc(simMsg.t)}</p>`;
+  else if (!s) h += '<p class="smsg">Select a part, pick the faces held fixed and the faces a force pushes on, then solve. Each force is the total in newtons, shared over its faces.</p>';
+  box.innerHTML = h;
+}
+$('#sim').addEventListener('click', e => {
+  const b = e.target.closest('[data-sa]'); if (!b) return;
+  const k = +b.dataset.k, act = b.dataset.sa; b.blur();
+  if (act === 'use') return useSelected();
+  if (act === 'pick-fix') return startSimPick('fix');
+  if (act === 'pick-load') return startSimPick('load', k);
+  if (act === 'add-load') { sim.loads.push({ faces: [], f: [0, 0, -1000] }); simChanged(); return startSimPick('load', sim.loads.length - 1); }
+  if (act === 'del-load') { sim.loads.splice(k, 1); if (simPick && simPick.kind === 'load') simPick = null; return simChanged(); }
+  if (act === 'run') return runSim();
+});
+$('#sim').addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.sv === 'mat') sim.mat = t.value;
+  else if (t.dataset.sv === 'tangent') { sim.tangent = t.checked; for (const pk of [...sim.fixed, ...sim.loads.flatMap(L => L.faces)]) pk.tangent = t.checked; }
+  else if (t.dataset.sv === 'h') { const v = parseFloat(t.value); sim.h = v > 0 ? v : null; }
+  else if (t.dataset.sf) { const v = parseFloat(t.value); if (isFinite(v)) sim.loads[+t.dataset.k].f[+t.dataset.sf] = v; }
+  simChanged();
+});
+$('#sim').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.tagName === 'INPUT') e.target.blur(); });
+
+/* =================== 2D → 3D extrude =================== */
+function loopsFrom2D(doc) {
+  const lay = new Map((doc.layers || []).map(l => [l.id, l]));
+  const usable = e => { const l = lay.get(e.layer); return !l || (l.vis !== false && (l.lt || 'cont') === 'cont'); };
+  const arcPts = (c, r, a0, a1) => { let sw = ((a1 - a0) % TAU + TAU) % TAU; if (sw < 1e-9) sw = TAU; const n = Math.max(4, Math.ceil(sw / (TAU / 72))); return Array.from({ length: n + 1 }, (_, i) => { const a = a0 + sw * i / n; return [c.x + r * Math.cos(a), c.y + r * Math.sin(a)]; }); };
+  const loops = [], open = [];
+  for (const e of doc.ents || []) {
+    if (!usable(e)) continue;
+    if (e.t === 'line') open.push([[e.a.x, e.a.y], [e.b.x, e.b.y]]);
+    else if (e.t === 'arc') open.push(arcPts(e.c, e.r, e.a0, e.a1));
+    else if (e.t === 'poly') (e.closed ? loops : open).push(e.pts.map(p => [p.x, p.y]));
+    else if (e.t === 'circle') loops.push(arcPts(e.c, e.r, 0, TAU).slice(0, -1));
+  }
+  const tol = 0.01, eq = (p, q) => Math.abs(p[0] - q[0]) < tol && Math.abs(p[1] - q[1]) < tol;
+  while (open.length) {
+    let ch = open.shift().slice(), grew = true;
+    while (grew && !(ch.length > 2 && eq(ch[0], ch[ch.length - 1]))) {
+      grew = false;
+      for (let i = 0; i < open.length; i++) {
+        const s = open[i], end = ch[ch.length - 1];
+        if (eq(end, s[0])) ch = ch.concat(s.slice(1));
+        else if (eq(end, s[s.length - 1])) ch = ch.concat(s.slice(0, -1).reverse());
+        else if (eq(ch[0], s[s.length - 1])) ch = s.slice(0, -1).concat(ch);
+        else if (eq(ch[0], s[0])) ch = s.slice(1).reverse().concat(ch);
+        else continue;
+        open.splice(i, 1); grew = true; break;
+      }
+    }
+    if (ch.length > 3 && eq(ch[0], ch[ch.length - 1])) { ch.pop(); loops.push(ch); }
+  }
+  const area = pts => { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p[0] * q[1] - q[0] * p[1]; } return Math.abs(a / 2); };
+  const inside = (pt, poly) => { let c = false; for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) { const a = poly[i], b = poly[j]; if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c; } return c; };
+  const L = loops.map(pts => ({ pts, a: area(pts) })).filter(l => l.a > 1e-6).sort((a, b) => b.a - a.a);
+  L.forEach((l, i) => { l.parent = -1; for (let j = 0; j < i; j++) if (inside(l.pts[0], L[j].pts)) l.parent = j; l.depth = l.parent < 0 ? 0 : L[l.parent].depth + 1; });
+  return L.map((l, i) => ({ l, i })).filter(x => x.l.depth % 2 === 0).map(({ l, i }) => ({ outer: l.pts, holes: L.filter(h => h.parent === i).map(h => h.pts) }));
+}
+function openExtrude(mode) { if (mode) $('#xMode').value = mode; syncXMode(); $('#mExtrude').hidden = false; $('#xMsg').textContent = ''; $('#xMsg').className = 'msg'; $('#xText').focus(); }
+function syncXMode() { const rev = $('#xMode').value === 'revolve'; $('#xHLab').hidden = rev; $('#xALab').hidden = !rev; $('#xGo').textContent = rev ? 'Revolve' : 'Extrude'; }
+$('#xMode').onchange = syncXMode;
+$('#xFile').addEventListener('change', e => { const f = e.target.files[0]; if (!f) return; const rd = new FileReader(); rd.onload = () => { $('#xText').value = String(rd.result); e.target.value = ''; }; rd.readAsText(f); });
+$('#xGo').onclick = () => {
+  const msg = $('#xMsg'), err = t => { msg.textContent = t; msg.className = 'msg err'; };
+  let doc; try { doc = JSON.parse($('#xText').value); } catch (_) { return err('That is not valid JSON. Copy the JSON tab from Planform 2D’s Export.'); }
+  if (!Array.isArray(doc.ents)) return err('No 2D drawing found in that JSON.');
+  const rev = $('#xMode').value === 'revolve';
+  const h = parseFloat($('#xH').value), angle = parseFloat($('#xA').value);
+  if (!rev && !(h > 0)) return err('Height must be greater than zero.');
+  if (rev && !(angle > 0 && angle <= 360)) return err('Angle must be between 0 and 360 degrees.');
+  const loops = loopsFrom2D(doc);
+  if (!loops.length) return err('No closed outlines found. Use closed polylines, rectangles, circles, or lines and arcs that meet end to end.');
+  if (rev && loops.some(L => L.outer.some(([x]) => x < -0.01))) return err('For a revolve, draw the profile on the right of the Y axis (x of 0 or more). The Y axis becomes the spin axis.');
+  pushUndo();
+  const o = makeObj(rev ? 'revolve' : 'extrude'); o.params = rev ? { angle, seg: 64, loops: loops.map(L => ({ outer: L.outer, holes: [] })) } : { h, loops };
+  objs.push(o); sel.clear(); sel.add(o.id);
+  $('#mExtrude').hidden = true; refresh(); fit(true);
+  toast(rev ? `Revolved ${loops.length} profile${loops.length > 1 ? 's' : ''} through ${fmt(angle)}°.${loops.some(L => L.holes.length) ? ' Holes inside the profile were skipped.' : ''}` : `Extruded ${loops.length} outline${loops.length > 1 ? 's' : ''} to ${fmt(h)} mm.`);
+};
+
+/* =================== open scene file =================== */
+$('#fOpen').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    e.target.value = '';
+    try {
+      const o = JSON.parse(String(rd.result));
+      if (Array.isArray(o.objs)) { pushUndo(); objs = o.objs; vars = Array.isArray(o.vars) ? o.vars : []; nextId = Math.max(0, ...objs.map(x => x.id)) + 1; sel.clear(); refresh(); fit(false); toast(`Opened ${f.name}.`); }
+      else if (Array.isArray(o.ents)) { $('#xText').value = String(rd.result); openExtrude(); }
+      else toast('That file is not a Planform scene or drawing.', true);
+    } catch (err) { toast(`Could not read ${f.name}.`, true); }
+  };
+  rd.readAsText(f);
+});
+
+/* =================== example scene =================== */
+function circ(cx, cy, r, n) { return Array.from({ length: n }, (_, i) => [cx + r * Math.cos(TAU * i / n), cy + r * Math.sin(TAU * i / n)]); }
+function roundRect(w, h, r, n) {
+  const pts = [], corner = (cx, cy, a0) => { for (let i = 0; i <= n; i++) { const a = a0 + Math.PI / 2 * i / n; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); } };
+  corner(w - r, r, -Math.PI / 2); corner(w - r, h - r, 0); corner(r, h - r, Math.PI / 2); corner(r, r, Math.PI); return pts;
+}
+function loadExample() {
+  objs = []; nextId = 1;
+  const plateProfile = { outer: roundRect(160, 90, 10, 10), holes: [[15, 15], [145, 15], [145, 75], [15, 75]].map(([x, y]) => circ(x, y, 4.5, 40)).concat([circ(80, 45, 20, 72)]) };
+  const plate = makeObj('extrude', { name: 'Plate 6 mm', color: '#8aa4bf' }); plate.params = { h: 6, loops: [plateProfile] };
+  const cbore = makeObj('cyl', { name: 'Ø52 counterbore', hole: true, pos: [80, 45, 3] }); cbore.params = { dia: 52, h: 4, seg: 72 };
+  const g = makeObj('group', { name: 'Bracket plate', color: '#8aa4bf', pos: [0, 0, 0] }); g.children = [plate, cbore];
+  const boss = makeObj('cyl', { name: 'Boss', color: '#d0894a', pos: [0, 0, 0] }); boss.params = { dia: 24, h: 18, seg: 64 };
+  const bore = makeObj('cyl', { name: 'Ø9 bore', hole: true, pos: [0, 0, -1] }); bore.params = { dia: 9, h: 20, seg: 40 };
+  const flat = makeObj('box', { name: 'Wrench flat', hole: true, pos: [0, 15.5, 6] }); flat.params = { w: 30, d: 10, h: 13 };
+  const spacer = makeObj('group', { name: 'Spacer', color: '#d0894a', pos: [200, 45, 0] }); spacer.children = [boss, bore, flat];
+  objs = [g, spacer];
+  nextId = 10;
+}
+
+/* =================== boot =================== */
+let loaded = false;
+try { const s = localStorage.getItem(KEY); if (s) { const o = JSON.parse(s); if (Array.isArray(o.objs)) { objs = o.objs; vars = Array.isArray(o.vars) ? o.vars : []; nextId = o.nextId || (Math.max(0, ...objs.map(x => x.id)) + 1); loaded = true; } } } catch (_) {}
+if (!loaded) loadExample();
+readTheme();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readTheme);
+new MutationObserver(readTheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
+refresh(false); applySnap(); resize(); applyMouse();
+let userMoved = false;
+orbit.addEventListener('start', () => { userMoved = true; });
+const bootFit = () => { if (!userMoved) { resize(); setView('iso'); } };
+window.addEventListener('load', () => setTimeout(bootFit, 60));
+if (document.fonts) document.fonts.ready.then(() => setTimeout(bootFit, 60));
+toast(loaded ? 'Scene restored from this browser.' : 'Example scene: a bracket plate and a spacer, each built from solids with holes cut out.');
+})();
+</script>
